@@ -1,8 +1,10 @@
 alias test := pytest
 alias tests := pytest
 
+
 default:
   @just --list
+
 
 [group("Check")]
 static:
@@ -15,7 +17,6 @@ static:
   @echo
   uv run ty check
   
-
 
 [group("Check")]
 [group("Ruff")]
@@ -48,16 +49,15 @@ pytest:
 [group("Ruff")]
 check: static ruff pytest
 
+
 [group("Ruff")]
 format:
   uv run ruff format
 
 
-[doc("semver: [major|minor|patch]")]
-release semver:
+release tag:
   #!/usr/bin/sh
-  tag="$(git cliff --bump {{semver}} || exit 1)"
-  git cliff --unreleased --tag "$tag" --output CHANGELOG.md || exit 1
+  git cliff --unreleased --tag {{ tag }} --output CHANGELOG.md
   git add .
   git commit -m "chore(release): update CHANGELOG.md for $tag"
   git tag "$tag"

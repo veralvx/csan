@@ -2,7 +2,7 @@
 
 `csan` is a CLI tool that generates a Cutter-Sanborn identifier, given a first and a last name.
 
-The Cutter-Sanborn identifier, commonly called "Cutter number", is an alphanumeric code used in library classification systems in order to arrange books alphabetically by author. It consists of the first letter of the author's last name followed by three-digit number derived from a predefined [table](https://github.com/veralvx/cutter-sanborn-table). This system was originally developed by Charles Cutter, and revised by Kate Sanborn.
+The Cutter-Sanborn identifier, commonly called "Cutter number", is an alphanumeric code that forms part of the call number in library classification systems in order to arrange books alphabetically by author. It consists of the first letter of the author's last name followed by three-digit number derived from a predefined [table](https://github.com/veralvx/cutter-sanborn-table). This system was originally developed by Charles Cutter, and revised by Kate Sanborn.
 
 ## Installation
 
