@@ -8,7 +8,7 @@ from .naming import compose_name, process_name
 logger = logging.getLogger(__name__)
 
 
-def _build_parser() -> argparse.Namespace:
+def _get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="csan",
         description="Cutter-Sanborn identifier generator.",
@@ -37,7 +37,7 @@ def _verbalize_args(**kwargs: str | bool | None) -> None:
 
 
 def main():
-    args = _build_parser()
+    args = _get_args()
     first_name, last_name = process_name(args.first_name, args.last_name)
     composed_name, composed_name_abbr = compose_name(first_name, last_name)
 
