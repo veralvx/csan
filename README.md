@@ -60,4 +60,5 @@ The following cutter numbers are expected, for their respective names. This is a
 | Agatha     | Christie     | 555                    |
 | Stephen    | King         | 52                     |
 | Jorge      | De la Cruz   | 332                    |
+| Ivan       | Smith        | 649
 | Lord       | Sith         | 622                    |
