@@ -24,7 +24,7 @@ jobs:
           args: --latest --strip header --verbose
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: 3.14
 
