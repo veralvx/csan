@@ -57,6 +57,7 @@ format:
 [doc("semver: major|minor|patch")]
 release tag semver:
   #!/usr/bin/sh
+  just check
   uv version --bump {{ semver }}
   uv sync
   git cliff --unreleased --tag {{ tag }} --output CHANGELOG.md

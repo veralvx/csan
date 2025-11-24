@@ -18,11 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update README
 - Update README
 - Update gitignore
+- Bump version
 
 ### Fixed
 
 - Change error type if cutter function fails
 - Initial tests
+- Passing checks for release
 
 [0.1.1]: https://github.com/veralvx/csan/compare/v0.1.0..0.1.1
 
