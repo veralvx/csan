@@ -62,7 +62,7 @@ release tag semver:
   uv sync
   git cliff --unreleased --tag {{ tag }} --output CHANGELOG.md
   git add .
-  git commit -m "chore(release): update CHANGELOG.md for $tag"
+  git commit -m "chore(release): bump version for $tag"
   git tag "$tag"
   git push origin main --tags
 
