@@ -68,8 +68,17 @@ release tag semver:
 
 
 clean:
-  #!/bin/sh
-  list=(".mypy_cache" ".pytest_cache" "__pycache__" ".ruff_cache" ".idea" "dist")
-  for dir in "${list[@]}"; do
-    find . -type d -name "$dir" -print -exec rm -rf {} +
-  done
+    @echo "Cleaning temporary files, except in .venv and .env"
+    find . -type d \
+        -name .venv -prune \
+        -o -name .env -prune \
+        -o \( \
+            -name .mypy_cache -o \
+            -name .pytest_cache -o \
+            -name __pycache__ -o \
+            -name .ruff_cache -o \
+            -name .idea -o \
+            -name dist \
+        \) \
+        -print \
+        -exec rm -rf {} +
