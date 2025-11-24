@@ -46,4 +46,3 @@ def test_invalid_names() -> None:
         cutter_number("Jane", "")
     with pytest.raises(ValueError):
         cutter_number("   ", "   ")
-
