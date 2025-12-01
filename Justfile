@@ -6,6 +6,8 @@ alias checks := check
 default:
   @just --list
 
+dev-deps:
+  uv add --dev mypy basedpyright ty pyrefly ruff pytest
 
 [group("Checks")]
 [doc("Run static typing checks")]
