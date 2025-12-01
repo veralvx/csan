@@ -8,7 +8,7 @@ from .naming import compose_name, process_name
 logger = logging.getLogger(__name__)
 
 
-def _get_args() -> argparse.Namespace:
+def get_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="csan",
         description="Cutter-Sanborn identifier generator.",
@@ -26,7 +26,7 @@ def _get_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _verbalize_args(**kwargs: str | bool | None) -> None:
+def verbalize_args(**kwargs: str | bool | None) -> None:
     name: str = cast(str, kwargs["Name"]).replace(" ", "")
     if not name.isascii() or not name.isalpha():
         logger.warning("works better with ascii and alphabetic name.")
@@ -36,14 +36,14 @@ def _verbalize_args(**kwargs: str | bool | None) -> None:
 
 
 def main():
-    args = _get_args()
+    args = get_args()
     first_name, last_name = process_name(args.first_name, args.last_name)
     composed_name, composed_name_abbr = compose_name(first_name, last_name)
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(level=log_level, format="%(message)s")
 
     if args.verbose:
-        _verbalize_args(
+        verbalize_args(
             **{
                 "Name": args.first_name + " " + args.last_name,
                 "First name": first_name,
