@@ -53,7 +53,9 @@ pytest:
 [group("Tests")]
 [group("Ruff")]
 [doc("Run all checks: static typing, Ruff linter/formatter and tests")]
-check: static ruff pytest
+check: 
+  uv sync
+  @just static ruff pytest
 
 
 [group("Ruff")]
