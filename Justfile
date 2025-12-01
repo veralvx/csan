@@ -55,6 +55,7 @@ pytest:
 [doc("Run all checks: static typing, Ruff linter/formatter and tests")]
 check: 
   uv sync
+  uv ruff format
   @just static ruff pytest
 
 
