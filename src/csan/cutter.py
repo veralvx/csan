@@ -1,5 +1,5 @@
 import logging
-from bisect import bisect_left
+from bisect import bisect_left, bisect_right
 
 from .data import CUTTER_DATA
 from .naming import compose_name, process_name
@@ -33,6 +33,11 @@ def cutter_number(
         349
     """
     first_name, last_name = process_name(first_name, last_name)
+
+    if len(last_name) == 1:
+        logger.debug("last_name has len == 1. Retrieving first entry with this letter.")
+        cutter_bisect = bisect_right(tuple_cutter := tuple(CUTTER_DATA), last_name)
+        return CUTTER_DATA[tuple_cutter[cutter_bisect]]
 
     if (composed_name is None) or (composed_name_abbr is None):
         composed_name, composed_name_abbr = compose_name(first_name, last_name)
@@ -128,7 +133,12 @@ def cutter_number(
         logger.debug("\n")
 
     if cutter_s is None:
-        raise ValueError("Unable to retrieve Cutter-Sanborn number.")
+        logger.debug(
+            "Last resource: bisect on last name, first letter; get adjacent left entry"
+        )
+        cutter_bisect = bisect_right(tuple_data, composed_name_decrescent[-1])
+        return CUTTER_DATA[tuple_data[cutter_bisect - 1]]
+        # raise ValueError("Unable to retrieve Cutter-Sanborn number.")
 
     return 0
 
