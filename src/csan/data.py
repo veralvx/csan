@@ -446,7 +446,7 @@ CUTTER_DATA: dict[str, int] = {
     "Apr": 654,
     "Apt": 655,
     "Aqu": 656,
-    "HEREn": 657,
+    "Aquin": 657,
     "Ara": 658,
     "Arag": 659,
     "Aram": 661,
