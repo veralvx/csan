@@ -93,7 +93,7 @@ def process_name(first_name: str | None, last_name: str) -> tuple[str | None, st
 
     last_name = ascii_name(re.sub(r"[;,.\-' ]+", "", last_name)).title()
 
-    if len(last_name) < 2:
-        raise ValueError("Last Name must have at least 2 letters")
+    #if len(last_name) < 2:
+    #    raise ValueError("Last Name must have at least 2 letters")
 
     return first_name, last_name
