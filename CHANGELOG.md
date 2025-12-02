@@ -1,3 +1,42 @@
+## [0.2.0] - 2025-12-02
+
+### 🚀 Features
+
+- [**breaking**] Make first name optional
+
+### 🐛 Bug Fixes
+
+- Clean recipe does not alter .venv
+- Include uv sync in check recipe
+- [**breaking**] Logging config only in main file
+- Remove f-string variable from raised error
+
+### 🚜 Refactor
+
+- [**breaking**] Remove underscores from functions in main file
+
+### 📚 Documentation
+
+- Improve justfile documentation
+- Update README
+
+### ⚡ Performance
+
+- Use bisection for sieving cutter keys
+
+### 🧪 Testing
+
+- Add more cases to cutter test
+
+### ⚙️ Miscellaneous Tasks
+
+- *(docs)* Change CHANGELOG format
+- Rename commit message in justfile
+- Add justfile recipe for dev-deps
+- Add envs to gitignore
+- Bump deps
+- Add autoformat in check recipe
+- *(release)* Bump version
 ## [0.1.1] - 2025-11-24
 
 ### 🐛 Bug Fixes
