@@ -10,6 +10,7 @@
 - Include uv sync in check recipe
 - [**breaking**] Logging config only in main file
 - Remove f-string variable from raised error
+- Add missing command word to check recipe
 
 ### 🚜 Refactor
 
@@ -37,6 +38,7 @@
 - Bump deps
 - Add autoformat in check recipe
 - *(release)* Bump version
+- *(release)* Update CHANGELOG
 ## [0.1.1] - 2025-11-24
 
 ### 🐛 Bug Fixes
