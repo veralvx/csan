@@ -110,8 +110,8 @@ def cutter_number(
     # composed_name, since 2+ letters in first name cases are covered in Smiths match.
     composed_name_decrescent = [
         composed_slice
-        for i in range(len(composed_name), 1, -1)
-        if not (composed_slice := composed_name[:i]).endswith((",", " "))
+        for i in range(len(composed_name_abbr), 1, -1)
+        if not (composed_slice := composed_name_abbr[:i]).endswith((",", " "))
     ]
 
     if first_name and len(first_name) == 1:
