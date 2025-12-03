@@ -1,4 +1,4 @@
-CUTTER_DATA: dict[str, int] = {
+CUTTER_TABLE: dict[str, int] = {
     "Aa": 111,
     "Aal": 112,
     "Aar": 113,

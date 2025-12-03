@@ -1,8 +1,8 @@
 import logging
 from bisect import bisect_left, bisect_right
 
-from .data import CUTTER_DATA
 from .naming import compose_name, process_name
+from .table import CUTTER_TABLE
 
 logger = logging.getLogger(__name__)
 
@@ -40,25 +40,25 @@ def cutter_number(
     # The first element of this list will have last_name's cutter number when retrieved.
     if len(last_name) == 1:
         logger.debug("last_name has len == 1. Retrieving first entry with this letter.")
-        cutter_bisect = bisect_right(tuple_cutter := tuple(CUTTER_DATA), last_name)
-        return CUTTER_DATA[tuple_cutter[cutter_bisect]]
+        cutter_bisect = bisect_right(tuple_cutter := tuple(CUTTER_TABLE), last_name)
+        return CUTTER_TABLE[tuple_cutter[cutter_bisect]]
 
-    # There are only 5 entries in CUTTER_DATA with 2 or more letters in the first name.
+    # There are only 5 entries in CUTTER_TABLE with 2 or more letters in the first name.
     # All of them are associated to Smiths.
     # Matching these edge cases, composed_name_decrescent can be built from
     # composed_name_abbr instead of composed_name
     if last_name == "Smith" and first_name:
         match first_name:
             case f if f.startswith("John"):
-                return CUTTER_DATA["Smith, John"]
+                return CUTTER_TABLE["Smith, John"]
             case f if f.startswith("Jos"):
-                return CUTTER_DATA["Smith, Jos."]
+                return CUTTER_TABLE["Smith, Jos."]
             case f if f.startswith("Robert"):
-                return CUTTER_DATA["Smith, Robert"]
+                return CUTTER_TABLE["Smith, Robert"]
             case f if f.startswith("Sol"):
-                return CUTTER_DATA["Smith, Sol"]
+                return CUTTER_TABLE["Smith, Sol"]
             case f if f == "William" or f.startswith("Wm"):
-                return CUTTER_DATA["Smith, Wm."]
+                return CUTTER_TABLE["Smith, Wm."]
 
     if (composed_name is None) or (composed_name_abbr is None):
         composed_name, composed_name_abbr = compose_name(first_name, last_name)
@@ -87,11 +87,11 @@ def cutter_number(
 
     logger.debug("Obvious attempts: %s", obvious_attempts)
 
-    if attempt := next((a for a in obvious_attempts if a in CUTTER_DATA), None):
+    if attempt := next((a for a in obvious_attempts if a in CUTTER_TABLE), None):
         logger.debug("Returning match '%s' from obvious attempts", attempt)
-        return CUTTER_DATA[attempt]
+        return CUTTER_TABLE[attempt]
 
-    tuple_data = tuple(CUTTER_DATA)
+    tuple_data = tuple(CUTTER_TABLE)
     bisect_entrypoint = bisect_left(tuple_data, last_name[0:2])
     bisect_endpoint = bisect_left(
         tuple_data,
@@ -103,7 +103,7 @@ def cutter_number(
 
     # alternative to bisect (a bit slower)
     # sieved_data = [
-    #    k for k in CUTTER_DATA if k.startswith(last_name[0:2])
+    #    k for k in CUTTER_TABLE if k.startswith(last_name[0:2])
     # ]
 
     # Build composed_name_decrescent from composed_name_abbr instead of
@@ -156,14 +156,14 @@ def cutter_number(
             logger.debug("Match: %s\n", cutter_s)
 
         if cutter_s is not None:
-            return CUTTER_DATA[cutter_s]
+            return CUTTER_TABLE[cutter_s]
 
         logger.debug("\n")
 
     if cutter_s is None:
         logger.debug("Last resource: bisect_right using first two letters of last name")
         cutter_bisect = bisect_right(tuple_data, composed_name_decrescent[-1])
-        return CUTTER_DATA[tuple_data[max(0, cutter_bisect - 1)]]
+        return CUTTER_TABLE[tuple_data[max(0, cutter_bisect - 1)]]
 
     return None
 
