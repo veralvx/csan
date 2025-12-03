@@ -1,22 +1,31 @@
-alias checks := check
+alias check := checks
 alias linter := lint
 alias lints := lint
 alias lintr := lint
+alias ruff := format
+alias ruff-check := ruff-checks
 alias test := pytest
 alias tests := pytest
-alias type := static
 alias typing := static
 
+[group("Misc")]
 [doc("List Just recipes")]
 default:
   @just --list
 
+[group("Misc")]
 dev-deps:
   uv add --dev mypy basedpyright ty pyrefly ruff pytest
 
+[group("Ruff")]
+[doc("Format code (modifies files)")]
+format:
+  @echo
+  uv run ruff format
 
 [group("Checks")]
 [group("Ruff")]
+[doc("Check if files are formatted")]
 format-check:
   @echo
   uv run ruff format --check
@@ -24,6 +33,7 @@ format-check:
 
 [group("Checks")]
 [group("Ruff")]
+[doc("Run linter (does not modify files)")]
 lint:
   @echo
   uv run ruff check
@@ -31,10 +41,8 @@ lint:
 
 [group("Checks")]
 [group("Ruff")]
-[doc("Run Ruff checks: formatter and linter")]
-ruff:
-  uv run ruff format
-  @just format-check lint
+[doc("Run Ruff checks: format-check + lint")]
+ruff-checks: format-check lint
 
 
 [group("Checks")]
@@ -60,29 +68,27 @@ static:
 [group("Checks")]
 [group("Tests")]
 [group("Ruff")]
-[doc("Run all checks: static typing, Ruff linter/formatter and tests")]
-check: 
-  uv sync
-  @just ruff pytest static 
+[doc("Run all checks: Ruff linter/formatter, static typing, tests")]
+checks: 
+  uv lock --check
+  @just ruff-checks pytest static 
 
 
-[group("Ruff")]
-format:
-  uv run ruff format
-
-[doc("semver: major|minor|patch")]
-release tag semver:
+[doc("Template steps for a relase. Not meant to be run. Usage: just release <major|minor|patch>")]
+[group("Misc")]
+release semver:
   #!/usr/bin/sh
-  just check
+  just checks
   uv version --bump {{ semver }}
   uv sync
-  git cliff --tag {{ tag }} --output CHANGELOG.md
+  git cliff --tag "$(uv version --short)" --output CHANGELOG.md
   git add .
-  git commit -m "chore(release): bump version for $tag"
-  git tag "$tag"
+  git commit -m "chore(release): bump version for $(uv version --short)"
+  git tag "$(uv version --short)"
   git push origin main --tags
 
 [doc("Clean temporary files")]
+[group("Misc")]
 clean:
     @echo "Cleaning temporary files, except in .venv and .env"
     find . -type d \
