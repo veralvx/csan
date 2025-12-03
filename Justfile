@@ -76,7 +76,7 @@ release tag semver:
   just check
   uv version --bump {{ semver }}
   uv sync
-  git cliff --unreleased --tag {{ tag }} --output CHANGELOG.md
+  git cliff --tag {{ tag }} --output CHANGELOG.md
   git add .
   git commit -m "chore(release): bump version for $tag"
   git tag "$tag"
