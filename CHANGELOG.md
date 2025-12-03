@@ -1,3 +1,28 @@
+## [0.4.0] - 2025-12-03
+
+### 🐛 Bug Fixes
+
+- Remove exports
+
+### 🚜 Refactor
+
+- [**breaking**] Rename data file with cutter table
+
+### ⚡ Performance
+
+- Build descending name list from abbreviated composed name
+
+### 🧪 Testing
+
+- Add edge case
+
+### ⚙️ Miscellaneous Tasks
+
+- *(fix)* Add 'console' language to pre element
+- *(docs)* Update README
+- *(docs)* Update README
+- *(release)* Bump version
+- *(docs)* Update README with historic context
 ## [0.3.0] - 2025-12-03
 
 ### 🚀 Features
@@ -31,6 +56,7 @@
 - Ignore 'Too many statements' ruff rule
 - Exclude log files in .gitignore
 - *(release)* Bump version
+- *(release)* Update CHANGELOG
 ## [0.2.0] - 2025-12-02
 
 ### 🚀 Features
