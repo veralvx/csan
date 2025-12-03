@@ -1,6 +1,6 @@
 [project]
 name = "csan"
-version = "0.3.0"
+version = "0.4.0"
 description = "CLI tool that generates a Cutter-Sanborn identifier, given a first and a last name."
 readme = "README.md"
 authors = [{ name = "VERA LVX", email = "veralvx@veralvx.com" }]
