@@ -26,6 +26,7 @@ from csan.cutter import cutter_number
         ("M.", "Abbott", 133),
         ("Mary", "Abbott", 133),
         ("Ivan", "Smith", 649),
+        ("Ivan.", "Smith", 649),
         ("I", "Smith", 649),
         ("I.", "Smith", 649),
         ("John", "Smith", 652),
