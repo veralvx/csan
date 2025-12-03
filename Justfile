@@ -1,6 +1,11 @@
+alias checks := check
+alias linter := lint
+alias lints := lint
+alias lintr := lint
 alias test := pytest
 alias tests := pytest
-alias checks := check
+alias type := static
+alias typing := static
 
 [doc("List Just recipes")]
 default:
@@ -19,7 +24,7 @@ format-check:
 
 [group("Checks")]
 [group("Ruff")]
-linter:
+lint:
   @echo
   uv run ruff check
 
@@ -29,7 +34,7 @@ linter:
 [doc("Run Ruff checks: formatter and linter")]
 ruff:
   uv run ruff format
-  @just format-check linter
+  @just format-check lint
 
 
 [group("Checks")]
