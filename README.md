@@ -69,6 +69,12 @@ The following table shows expected Cutter call numbers for their respective name
 
 ## Library Usage
 
+Add package to virtual environment:
+
+```console
+uv add csan
+```
+
 There are two relevant functions in `csan` package:
 
 - `csan.cutter.cutter_number`: return the integer part of the Cutter call number
