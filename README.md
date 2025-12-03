@@ -1,6 +1,6 @@
 # CSAN: Cutter-Sanborn Call Number Generator
 
-`csan` is a CLI tool that generates a Cutter-Sanborn identifier, given a last name and an optional first name.
+`csan` generates a Cutter-Sanborn call number, given a last name and an optional first name. It can be used as a CLI tool or as a Python library.
 
 The Cutter-Sanborn call number, commonly called "Cutter number", is an alphanumeric code that forms part of the call number in library classification systems in order to arrange books alphabetically by author. It consists of the first letter of the author's last name followed by three-digit number derived from a predefined [table](https://github.com/veralvx/cutter-sanborn-table). This system was originally developed by Charles Cutter, and revised by Kate Sanborn.
 
@@ -16,7 +16,7 @@ uv tool install csan
 pip install csan
 ```
 
-## Usage  
+## CLI Usage 
 
 
 ```console
@@ -34,34 +34,70 @@ options:
 
 For instance:
 
+
+
+### Examples
+
 - `csan -f John -l Doe` -> D649
 - `csan -f John -l Doe -t "My Book"` -> D649m
 - `csan -f First -l Last -v` -> L349, with log output to the console
 - `csan -f Jorge -l "De la Cruz"` -> D332
 
-## Examples
+The following table shows expected Cutter call numbers for their respective names, using CLI
 
-The following cutter numbers are expected for their respective names. This is achieved with `cutter_number` function from `csan.cutter`, which returns only the integer part. When run via CLI, the output is the Cutter call number (`cutter_call_number` function), which also includes the Cutter integer number.
+| First Name | Last Name    | Cutter Call Number |
+|------------|--------------|:------------------:|
+| Jane       | Austen       | A933               |
+| Eric       | Blair        | B635               |
+| Agatha     | Christie     | C555               |
+| Samuel     | Clemens      | C625               |
+| Jorge      | De la Cruz   | D332               |
+| Charles    | Dickens      | D548               |
+| Emily      | Dickinson    | D553               |
+| Fyodor     | Dostoyevsky  | D724               |
+| Stephen    | King         | K52                |
+| VERA       | LVX          | L979               |
+| Herman     | Melville     | M531               |
+| George     | Orwell       | O79                |
+| William    | Shakespeare  | S527               |
+| Lord       | Sith         | S622               |
+| Ivan       | Smith        | S649               |
+| William    | Smith        | S664               |
+| Leo        | Tolstoy      | T654               |
+| Mark       | Twain        | T969               |
+| Virginia   | Woolf        | W913               |
+| Emile      | Zola         | Z86                |
 
-| First Name | Last Name    | Cutter Integer Number | Cutter Call Number |
-|------------|--------------|:---------------------:|:------------------:|
-| Jane       | Austen       | 933                   | A933               |
-| Eric       | Blair        | 635                   | B635               |
-| Agatha     | Christie     | 555                   | C555               |
-| Samuel     | Clemens      | 625                   | C625               |
-| Jorge      | De la Cruz   | 332                   | D332               |
-| Charles    | Dickens      | 548                   | D548               |
-| Emily      | Dickinson    | 553                   | D553               |
-| Fyodor     | Dostoyevsky  | 724                   | D724               |
-| Stephen    | King         | 52                    | K52                |
-| VERA       | LVX          | 979                   | L979               |
-| Herman     | Melville     | 531                   | M531               |
-| George     | Orwell       | 79                    | O79                |
-| William    | Shakespeare  | 527                   | S527               |
-| Lord       | Sith         | 622                   | S622               |
-| Ivan       | Smith        | 649                   | S649               |
-| William    | Smith        | 664                   | S664               |
-| Leo        | Tolstoy      | 654                   | T654               |
-| Mark       | Twain        | 969                   | T969               |
-| Virginia   | Woolf        | 913                   | W913               |
-| Emile      | Zola         | 86                    | Z86                |
+
+## Library Usage
+
+There are two relevant functions in `csan` package:
+
+- `csan.cutter.cutter_number`: return the integer part of the cutter call number
+- `csan.cutter.cutter_call_number`: return the call number
+
+Also, the entire Cutter-Sanborn table can be retrieved as a Python `dict`:
+
+- `csan.table.CUTTER_TABLE`
+
+
+### Example
+
+```python
+from csan.cutter import cutter_call_number, cutter_number
+from csan.table import CUTTER_TABLE
+
+
+def main():
+    print(CUTTER_TABLE)
+
+    cutter_num = cutter_number("First", "Last")
+    cutter_call_num = cutter_call_number("Last", cutter_num)
+
+    print(cutter_num)
+    print(cutter_call_num)
+
+
+if __name__ == "__main__":
+    main()
+```
