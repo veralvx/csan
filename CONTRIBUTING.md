@@ -5,6 +5,7 @@
 - [`uv`](https://docs.astral.sh/uv/)
 - [`just`](https://github.com/casey/just)
 
+
 ## Setup
 
 Fork this repository and clone your fork:
@@ -26,49 +27,19 @@ Create a branch for your changes:
 git switch -c <short-desc>
 ```
 
+
 ## Commands
 
-### Format/Lint
+| Command | Description |
+| :--- | :--- |
+| `just format` | Format files |
+| `just format-check` | Check if files are well formatted |
+| `just lint` | Lint files |
+| `just ruff-checks` | Run both `just format-check` and `just lint` |
+| `just test` | Run tests |
+| `just static` | Static Typing Checks |
+| `just check` | All Checks. Almost equivalent to what will be run in CI |
 
-This project uses [`ruff`](https://docs.astral.sh/ruff/) for formatting and linting. 
-
-Format: 
-
-```console
-just format
-```
-
-Lint: 
-
-```console
-just lint
-```
-
-Run both:
-
-```console
-just ruff
-```
-
-### Tests
-
-```console
-just test
-```
-
-### Static Typing Checks
-
-```console
-just static
-```
-
-### All Checks
-
-```console
-just check
-```
-
-Runs all of the above commands. This is equivalent to what will be run in CI for a specific Python version. 
 
 **Important**: run `just check` before submitting a pull request.
 
@@ -76,6 +47,7 @@ Runs all of the above commands. This is equivalent to what will be run in CI for
 ## Commit messages
 
 Use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/#specification).
+
 
 ## Legal
 
