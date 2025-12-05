@@ -105,3 +105,8 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+
+## License
+
+This project is released under the [Apache-2.0](https://github.com/veralvx/csan/blob/main/LICENSE) license.
