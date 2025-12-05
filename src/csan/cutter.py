@@ -48,17 +48,16 @@ def cutter_number(
     # Matching these edge cases, composed_name_decrescent can be built from
     # composed_name_abbr instead of composed_name
     if last_name == "Smith" and first_name:
-        match first_name:
-            case f if f.startswith("John"):
-                return CUTTER_TABLE["Smith, John"]
-            case f if f.startswith("Jos"):
-                return CUTTER_TABLE["Smith, Jos."]
-            case f if f.startswith("Robert"):
-                return CUTTER_TABLE["Smith, Robert"]
-            case f if f.startswith("Sol"):
-                return CUTTER_TABLE["Smith, Sol"]
-            case f if f == "William" or f.startswith("Wm"):
-                return CUTTER_TABLE["Smith, Wm."]
+        if first_name.startswith("John"):
+            return CUTTER_TABLE["Smith, John"]
+        if first_name.startswith("Jos"):
+            return CUTTER_TABLE["Smith, Jos."]
+        if first_name.startswith("Robert"):
+            return CUTTER_TABLE["Smith, Robert"]
+        if first_name.startswith("Sol"):
+            return CUTTER_TABLE["Smith, Sol"]
+        if first_name == "William" or first_name.startswith("Wm"):
+            return CUTTER_TABLE["Smith, Wm."]
 
     if (composed_name is None) or (composed_name_abbr is None):
         composed_name, composed_name_abbr = compose_name(first_name, last_name)
@@ -130,33 +129,38 @@ def cutter_number(
         if not sub_sieved:
             continue
 
+        # list() could be removed if not for logging
         miss_lttrs = list(composed_name_decrescent[0][len(name) :])
 
-        logger.debug("Name: %s\nPos: %s\nSieved List: %s", name, pos, sub_sieved)
+        logger.debug(
+            "Name: %s\nPos: %s\nSieved List: %s", name, pos, list(reversed(sub_sieved))
+        )
 
-        for candidate in sub_sieved:
+        for candidate in reversed(sub_sieved):
             logger.debug("Candidate: %s", candidate)
 
             if candidate == name:
+                return CUTTER_TABLE[candidate]
+
+            # list() could be removed if not for logging
+            xtra_lttrs = list(candidate[len(name) :].replace(".", ""))
+            logger.debug("Missing Letters: %s", miss_lttrs)
+            logger.debug("Extra Letters: %s", xtra_lttrs)
+
+            # list() could be removed if not for logging
+            if not (pairs := list(zip(miss_lttrs, xtra_lttrs, strict=False))):
+                logger.debug("Pairs are empty. Continuing...")
+                continue
+
+            logger.debug("Pairs: %s\nMatch: %s", pairs, cutter_s)
+
+            if all(x >= y and (x.isalpha() == y.isalpha()) for x, y in pairs):
                 cutter_s = candidate
-            else:
-                xtra_lttrs = list(candidate[len(name) :].replace(".", ""))
-                logger.debug("Missing Letters: %s", miss_lttrs)
-                logger.debug("Extra Letters: %s", xtra_lttrs)
-
-                if not (pairs := list(zip(miss_lttrs, xtra_lttrs, strict=False))):
-                    logger.debug("Pairs are empty. Continuing...")
-                    continue
-
-                logger.debug("Pairs: %s\nMatch: %s", pairs, cutter_s)
-
-                if all(x >= y and (x.isalpha() == y.isalpha()) for x, y in pairs):
-                    cutter_s = candidate
 
             logger.debug("Match: %s\n", cutter_s)
 
-        if cutter_s is not None:
-            return CUTTER_TABLE[cutter_s]
+            if cutter_s is not None:
+                return CUTTER_TABLE[cutter_s]
 
         logger.debug("\n")
 
