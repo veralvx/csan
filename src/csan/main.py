@@ -2,8 +2,8 @@ import argparse
 import logging
 from typing import cast
 
-from .cutter import cutter_call_number, cutter_number
-from .naming import compose_name, process_name
+from csan.cutter import cutter_call_number, cutter_number
+from csan.naming import compose_name, process_name
 
 logger = logging.getLogger(__name__)
 

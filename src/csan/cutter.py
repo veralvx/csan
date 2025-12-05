@@ -1,8 +1,8 @@
 import logging
 from bisect import bisect_left, bisect_right
 
-from .naming import compose_name, process_name
-from .table import CUTTER_TABLE
+from csan.naming import compose_name, process_name
+from csan.table import CUTTER_TABLE
 
 logger = logging.getLogger(__name__)
 
