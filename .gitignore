@@ -19,6 +19,7 @@ dist/
 wheels/
 *.egg-info/
 *.py[cod]
+*.spec
 
 # misc
 *.log
