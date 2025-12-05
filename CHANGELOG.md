@@ -1,3 +1,23 @@
+## [unreleased]
+
+### 📚 Documentation
+
+- Include library installation instruction in README
+- Update CONTRIBUTING
+- Add license information to README
+
+### ⚙️ Miscellaneous Tasks
+
+- *(docs)* Fix typos and remove extra spaces in README
+- *(fix)* Correct git cliff recipe in justfile
+- *(refactor)* Improve justfile recipes
+- *(docs)* Replace commands description for a table
+- Correct description for release recipe
+- *(style)* Remove trailing whitespaces in Justfile
+- Add exports to __init__.py
+- Update .gitignore
+- Update release and clean recipes for Justfile
+- *(release)* Bump version
 ## [0.4.0] - 2025-12-03
 
 ### 🐛 Bug Fixes
@@ -23,6 +43,7 @@
 - *(docs)* Update README
 - *(release)* Bump version
 - *(docs)* Update README with historic context
+- *(release)* Update CHANGELOG
 ## [0.3.0] - 2025-12-03
 
 ### 🚀 Features
