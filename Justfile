@@ -74,17 +74,20 @@ checks:
   @just ruff-checks pytest static
 
 
-[doc("Template steps for a relase. Usage: just release <major|minor|patch>")]
+[doc("Template steps for a release. Usage: just release <major|minor|patch>")]
 [group("Misc")]
 release semver:
   #!/usr/bin/sh
   just checks
   uv version --bump {{ semver }}
+  new_version="$(uv version --short)"
   uv sync
-  git cliff --tag "$(uv version --short)" --output CHANGELOG.md
-  git add .
-  git commit -m "chore(release): bump version for $(uv version --short)"
-  git tag "$(uv version --short)"
+  git add pyproject.toml uv.lock
+  git commit -m "chore(release): bump version"
+  git cliff --tag "$new_version" --output CHANGELOG.md
+  git add CHANGELOG.md
+  git commit -m "chore(release): update CHANGELOG"
+  git tag "$new_version"
   git push origin main --tags
 
 [doc("Clean temporary files")]
@@ -100,7 +103,9 @@ clean:
             -name __pycache__ -o \
             -name .ruff_cache -o \
             -name .idea -o \
-            -name dist \
+            -name dist -o \
+            -name main.spec -o \
+            -name build \
         \) \
         -print \
         -exec rm -rf {} +
