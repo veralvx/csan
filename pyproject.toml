@@ -1,6 +1,6 @@
 [project]
 name = "csan"
-version = "0.4.1"
+version = "0.4.2"
 description = "Generate a Cutter-Sanborn call number. Can be used as CLI tool or Python library."
 readme = "README.md"
 authors = [{ name = "VERA LVX", email = "veralvx@veralvx.com" }]

@@ -1,4 +1,21 @@
-## [unreleased]
+## [0.4.2] - 2025-12-08
+
+### 🐛 Bug Fixes
+
+- Henry, g. typo in table
+
+### 🚜 Refactor
+
+- Use absolute imports
+
+### ⚡ Performance
+
+- Early returns in cutter function main loop
+
+### ⚙️ Miscellaneous Tasks
+
+- Update gitignore
+## [0.4.1] - 2025-12-05
 
 ### 📚 Documentation
 
@@ -18,6 +35,7 @@
 - Update .gitignore
 - Update release and clean recipes for Justfile
 - *(release)* Bump version
+- *(release)* Update CHANGELOG
 ## [0.4.0] - 2025-12-03
 
 ### 🐛 Bug Fixes
