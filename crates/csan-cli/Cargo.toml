@@ -27,6 +27,5 @@ clap = { workspace = true }
 csan = { path = "../csan", version = "0.5.6" }
 serde_json = { workspace = true }
 
-
 [package.metadata.dist]
 dist = true
