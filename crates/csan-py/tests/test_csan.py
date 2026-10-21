@@ -32,11 +32,11 @@ def test_cutter_sanborn_with_author_and_title():
     )
 
 
-def test_cutter_sanborn_family_only():
+def test_cutter_sanborn_surname_only():
     assert csan.cutter_sanborn(surname="Borges") == "B732"
 
 
-def test_cutter_sanborn_given_only_matches_family_only():
+def test_cutter_sanborn_forename_only_matches_surname_only():
     # A lone given name is cuttered like a lone family name.
     assert csan.cutter_sanborn(forename="Prince") == csan.cutter_sanborn(
         surname="Prince"

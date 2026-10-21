@@ -11,8 +11,8 @@ use crate::catalog::normalization::{
 /// At least one of the two names must be present for the author to be usable
 /// by a cutter generator; an author with neither yields
 /// [`NormalizationError::EmptyString`] at generation time. This state is not
-/// constructible through [`Author::new`], [`Author::family_only`], or
-/// [`Author::given_only`], but can arise through deserialization.
+/// constructible through [`Author::new`], [`Author::surname_only`], or
+/// [`Author::forename_only`], but can arise through deserialization.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct Author {
     /// The author's given (first) name, e.g. `"William"`.
@@ -41,7 +41,7 @@ impl Author {
 
     /// Creates an `Author` with only a family name.
     #[must_use]
-    pub fn family_only(surname: impl Into<String>) -> Self {
+    pub fn surname_only(surname: impl Into<String>) -> Self {
         Self {
             forename: None,
             surname: Some(surname.into()),
@@ -50,7 +50,7 @@ impl Author {
 
     /// Creates an `Author` with only a given name.
     #[must_use]
-    pub fn given_only(forename: impl Into<String>) -> Self {
+    pub fn forename_only(forename: impl Into<String>) -> Self {
         Self {
             forename: Some(forename.into()),
             surname: None,
@@ -142,12 +142,12 @@ impl Author {
     /// split out so that callers holding normalized parts (e.g. the cutter
     /// generators) do not pay for a second normalization pass.
     #[must_use]
-    pub(crate) fn compose_parts(family_normalized: &str, given_normalized: &str) -> String {
-        match family_normalized {
-            "Saint" | "Sainte" | "San" => format!("{family_normalized} {given_normalized}"),
-            "St" => format!("Saint {given_normalized}"),
-            "Ste" => format!("Sainte {given_normalized}"),
-            _ => format!("{family_normalized}, {given_normalized}"),
+    pub(crate) fn compose_parts(surname_normalized: &str, forename_normalized: &str) -> String {
+        match surname_normalized {
+            "Saint" | "Sainte" | "San" => format!("{surname_normalized} {forename_normalized}"),
+            "St" => format!("Saint {forename_normalized}"),
+            "Ste" => format!("Sainte {forename_normalized}"),
+            _ => format!("{surname_normalized}, {forename_normalized}"),
         }
     }
 }
@@ -170,14 +170,14 @@ mod tests {
 
         #[test]
         fn new_with_no_forename() {
-            let author = Author::family_only("Plato");
+            let author = Author::surname_only("Plato");
             assert_eq!(author.forename(), None);
             assert_eq!(author.surname(), Some("Plato"));
         }
 
         #[test]
         fn new_with_no_surname() {
-            let author = Author::given_only("Prince");
+            let author = Author::forename_only("Prince");
             assert_eq!(author.forename(), Some("Prince"));
             assert_eq!(author.surname(), None);
         }
@@ -212,7 +212,7 @@ mod tests {
 
         #[test]
         fn forename_none() {
-            let author = Author::family_only("Doe");
+            let author = Author::surname_only("Doe");
             let result = author.forename_normalized().unwrap();
             assert_eq!(result, None);
         }
@@ -227,7 +227,7 @@ mod tests {
 
         #[test]
         fn surname_none_returns_none() {
-            let author = Author::given_only("Prince");
+            let author = Author::forename_only("Prince");
             let result = author.surname_normalized().unwrap();
             assert_eq!(result, None);
         }

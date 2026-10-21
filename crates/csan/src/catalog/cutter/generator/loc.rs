@@ -205,7 +205,7 @@ impl CutterGenerator for CutterLocMethod {
     /// # use csan::catalog::cutter::generator::{CutterGenerator, CutterLocMethod, CutterConfig};
     ///
     /// // Standard consonant rule: C -> a(3) -> r(7) -> t(8)
-    /// let aut_attr = Attribution::AuthorOnly(Author::family_only("Carter"));
+    /// let aut_attr = Attribution::AuthorOnly(Author::surname_only("Carter"));
     /// let result = CutterLocMethod::generate(&aut_attr, CutterConfig {max_len: 3, ..Default::default()}).unwrap();
     ///
     /// assert_eq!(result, CutterLoc::new('C', 378));
@@ -320,7 +320,7 @@ mod tests {
 
     /// Helper
     fn gen_author(name: &str, max_len: usize) -> Result<CutterLoc, NormalizationError> {
-        let author = Author::family_only(name);
+        let author = Author::surname_only(name);
         let attr = Attribution::AuthorOnly(author);
         CutterLocMethod::generate(
             &attr,
@@ -365,8 +365,8 @@ mod tests {
     }
 
     #[test]
-    fn given_only_author_uses_forename() {
-        let attr = Attribution::AuthorOnly(Author::given_only("Prince"));
+    fn forename_only_author_uses_forename() {
+        let attr = Attribution::AuthorOnly(Author::forename_only("Prince"));
         let result = CutterLocMethod::generate(&attr, CutterConfig::default()).unwrap();
         assert_eq!(result, CutterLoc::new('P', 756));
     }

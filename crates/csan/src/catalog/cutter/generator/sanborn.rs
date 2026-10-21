@@ -54,10 +54,10 @@ pub trait UsesTable {
     ) -> Result<(&'static str, CutterNumType, String), NormalizationError> {
         let working_name: Cow<'_, str> = match entry {
             Attribution::AuthorOnly(author) | Attribution::Both { author, .. } => {
-                let family_opt = author.surname_normalized()?;
-                let given_opt = author.forename_normalized()?;
+                let surname_opt = author.surname_normalized()?;
+                let forename_opt = author.forename_normalized()?;
 
-                match (family_opt, given_opt) {
+                match (surname_opt, forename_opt) {
                     (Some(family), Some(given)) => {
                         // The table carries a dedicated "Smith, Wm" entry for
                         // the most common English name; route the full form
@@ -166,7 +166,7 @@ where
     /// # use csan::catalog::models::{author::Author, opus::Opus, entry::Attribution};
     /// # use csan::catalog::cutter::generator::{CutterGenerator, CutterSanbornMethod, CutterConfig};
     ///
-    /// let author = Author::family_only("Borges");
+    /// let author = Author::surname_only("Borges");
     /// let opus = Opus::new("Ficciones");
     ///
     /// // Generates a Cutter taking 1 letter for the prefix and 1 for the suffix work mark
@@ -305,7 +305,7 @@ mod tests {
         }
 
         for (name, expected) in none_cases {
-            let author = Author::family_only(name);
+            let author = Author::surname_only(name);
             let num =
                 CutterSanbornMethod::retrieve_numeric(&Attribution::AuthorOnly(author)).unwrap();
             assert_eq!(num, expected, "Failed for Author: {name:?}");
@@ -321,7 +321,7 @@ mod tests {
                     Some((p1, p2)) if matches!(p1, "Saint" | "Sainte" | "San") => {
                         Attribution::AuthorOnly(Author::new(p2, p1))
                     }
-                    _ => Attribution::AuthorOnly(Author::family_only(k)),
+                    _ => Attribution::AuthorOnly(Author::surname_only(k)),
                 },
             };
 
@@ -392,13 +392,13 @@ mod tests {
     }
 
     #[test]
-    fn given_only_author_matches_family_only_lookup() {
+    fn forename_only_author_matches_surname_only_lookup() {
         let via_given = CutterSanbornMethod::retrieve_numeric(&Attribution::AuthorOnly(
-            Author::given_only("Prince"),
+            Author::forename_only("Prince"),
         ))
         .unwrap();
         let via_family = CutterSanbornMethod::retrieve_numeric(&Attribution::AuthorOnly(
-            Author::family_only("Prince"),
+            Author::surname_only("Prince"),
         ))
         .unwrap();
         assert_eq!(via_given, via_family);
@@ -408,7 +408,7 @@ mod tests {
     fn mac_prefix_names_hit_expanded_entries() {
         for name in ["MacClintock", "M'Clintock", "McClintock", " mcclintock "] {
             let num = CutterSanbornMethod::retrieve_numeric(&Attribution::AuthorOnly(
-                Author::family_only(name),
+                Author::surname_only(name),
             ))
             .unwrap();
             assert_eq!(num, 127, "name {name:?}");
@@ -418,7 +418,7 @@ mod tests {
     #[test]
     fn work_mark_is_best_effort() {
         let both = |title: &str| Attribution::Both {
-            author: Author::family_only("Dickens"),
+            author: Author::surname_only("Dickens"),
             opus: Opus::new(title),
         };
 

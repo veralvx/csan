@@ -60,8 +60,8 @@ impl Attribution {
         let family = surname.map(str::trim).filter(|n| !n.is_empty());
         let author = match (given, family) {
             (Some(g), Some(f)) => Some(Author::new(g, f)),
-            (None, Some(f)) => Some(Author::family_only(f)),
-            (Some(g), None) => Some(Author::given_only(g)),
+            (None, Some(f)) => Some(Author::surname_only(f)),
+            (Some(g), None) => Some(Author::forename_only(g)),
             (None, None) => None,
         };
         let opus = title
