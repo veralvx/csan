@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.4.0"
+version = "0.5.0"
 authors = ["VERALVX <veralvx@veralvx.com>"]
 # crates.io allows a maximum of 5 categories, chosen from the fixed slug
 # list at https://crates.io/category_slugs
