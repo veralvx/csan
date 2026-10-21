@@ -1,0 +1,293 @@
+name: Rust CI (check, test, clippy, fmt, docs, miri)
+
+on:
+  push:
+    paths:
+      - "**/*.rs"
+      - "**/*.typ"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "crates/csan-typst/pkg/**"
+      - "crates/csan-py/pyproject.toml"
+      - "crates/csan-py/python/**"
+      - "crates/csan-py/tests/**"
+      - "crates/csan-web/examples/**"
+      - ".github/workflows/rust-ci.yml"
+  pull_request:
+    paths:
+      - "**/*.rs"
+      - "**/*.typ"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "crates/csan-typst/pkg/**"
+      - "crates/csan-py/pyproject.toml"
+      - "crates/csan-py/python/**"
+      - "crates/csan-py/tests/**"
+      - "crates/csan-web/examples/**"
+      - ".github/workflows/rust-ci.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check (${{ matrix.features }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features: ["--all-features", "--no-default-features"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: check-${{ matrix.features }}
+
+      - name: Cargo check
+        run: cargo check --workspace --all-targets --locked --verbose ${{ matrix.features }}
+
+  test:
+    name: Test (${{ matrix.features }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features: ["--all-features", "--no-default-features"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: test-${{ matrix.features }}
+
+      - name: Cargo test
+        run: cargo test --workspace --all-targets --locked --verbose ${{ matrix.features }}
+
+  miri:
+    name: Miri (${{ matrix.features }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features: ["--all-features", "--no-default-features"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install nightly + miri
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: miri
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: miri-${{ matrix.features }}
+
+      - name: cargo miri setup
+        run: cargo +nightly miri setup
+
+      - name: cargo miri test
+        run: cargo +nightly miri test --workspace --locked --verbose ${{ matrix.features }}
+
+  clippy:
+    name: Clippy (${{ matrix.features }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features: ["--all-features", "--no-default-features"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install stable + clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: clippy-${{ matrix.features }}
+
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets --locked --verbose ${{ matrix.features }} -- -D warnings
+
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # dtolnay/rust-toolchain ignores rust-toolchain.toml, so the
+      # stable jobs above test the latest stable — this job is the one
+      # that actually verifies the pinned MSRV still builds and passes.
+      - name: Install MSRV toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.97"
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: msrv
+
+      - name: Check + test on MSRV
+        run: |
+          cargo check --workspace --all-targets --locked
+          cargo test --workspace --locked
+
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install stable + rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: docs
+
+      - name: cargo doc
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo doc --workspace --no-deps --all-features --locked
+
+  wasm-plugin:
+    name: Typst plugin (wasm build + plugin tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install stable + wasm target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm-plugin
+
+      - name: Build and install the plugin
+        run: |
+          cargo build --target wasm32-unknown-unknown --profile wasm -p csan-typst --locked
+          cp target/wasm32-unknown-unknown/wasm/csan.wasm \
+            crates/csan-typst/pkg/csan.wasm
+
+      - name: Install Typst
+        run: |
+          curl -sSfL -o /tmp/typst.tar.xz \
+            https://github.com/typst/typst/releases/download/v0.15.1/typst-x86_64-unknown-linux-musl.tar.xz
+          tar -xf /tmp/typst.tar.xz -C /tmp
+          sudo mv /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst
+          typst --version
+
+      - name: Run the plugin test documents
+        run: |
+          typst compile --root crates/csan-typst/pkg \
+            crates/csan-typst/pkg/tests/test.typ /tmp/csan-test.pdf
+          typst compile --root crates/csan-typst/pkg \
+            crates/csan-typst/pkg/examples/example.typ /tmp/csan-example.pdf
+
+  python-package:
+    name: Python package (wheel build + pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: python-package
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build and install the wheel
+        run: |
+          python -m pip install --upgrade pip maturin pytest
+          maturin build --release --locked -m crates/csan-py/Cargo.toml \
+            --compatibility linux -o dist
+          python -m pip install dist/*.whl
+
+      - name: Run the Python test suite
+        run: pytest crates/csan-py/tests
+
+  npm-package:
+    name: npm package (wasm-bindgen tests + wasm-pack build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install stable + wasm target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: npm-package
+
+      - name: Install wasm-pack
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Run the wasm-bindgen test suite
+        run: wasm-pack test --node crates/csan-web
+
+      - name: Build the Node package
+        run: wasm-pack build crates/csan-web --release --target nodejs --out-dir pkg-node
+
+      - name: Node smoke tests
+        run: |
+          node crates/csan-web/examples/node-demo.cjs
+          node -e '
+            const { cutterSanborn, cutterLoc } =
+              require("./crates/csan-web/pkg-node/csan_web.js");
+            const assert = require("node:assert");
+            assert.strictEqual(cutterSanborn({ givenName: "Charles",
+              familyName: "Dickens", title: "Oliver Twist" }), "D548o");
+            assert.strictEqual(cutterLoc({ title: "100 best recipes" }), "A153");
+            console.log("node smoke test passed");
+          '

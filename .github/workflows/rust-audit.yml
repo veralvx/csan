@@ -1,0 +1,33 @@
+name: Security audit (cargo-audit)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "**/audit.toml"
+      - ".github/workflows/rust-audit.yml"
+  schedule:
+    - cron: "0 0 * * *" # Daily at midnight UTC
+
+# The action behaves differently by trigger:
+#   push / workflow_dispatch → creates a check run (pass/fail)
+#   schedule (cron)          → creates a GitHub issue per advisory
+permissions:
+  contents: read
+  issues: write # for issue creation on schedule
+  checks: write # for check creation on push
+
+jobs:
+  security_audit:
+    name: cargo audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Run cargo audit
+        uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

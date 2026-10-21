@@ -1,0 +1,28 @@
+[package]
+name = "csan-cli"
+version.workspace = true
+authors.workspace = true
+categories = ["Command line utilities", "Command-line interface", "Text processing"]
+documentation.workspace = true
+edition.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+description = "Command-line Cutter call number generator (Cutter-Sanborn and Library of Congress)"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "csan"
+path = "src/main.rs"
+# The binary is a thin shell over the library; skipping its rustdoc also
+# avoids the doc output-filename collision with the `csan` lib crate
+# (rust-lang/cargo#6313).
+doc = false
+
+[dependencies]
+clap = { workspace = true }
+csan = { path = "../csan" }
+serde_json = { workspace = true }

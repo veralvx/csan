@@ -1,0 +1,38 @@
+name: Conventional Commits Check
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check_commits:
+    runs-on: ubuntu-latest
+    name: Check Conventional Commits
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Check PR Commits
+        if: github.event_name == 'pull_request'
+        uses: cocogitto/cocogitto-action@v4
+        with:
+          command: check
+          args: --ignore-merge-commits ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
+
+      - name: Check Push/Main Commits
+        if: github.event_name == 'push'
+        uses: cocogitto/cocogitto-action@v4
+        with:
+          command: check
+          args: --from-latest-tag --ignore-merge-commits

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<!--
+  Browser demo for csan-web.
+
+  Build the web package first, then serve this repository directory (the
+  browser needs HTTP, not file://) and open this page:
+
+      wasm-pack build --release --target web --out-dir pkg-web
+      python3 -m http.server            # from crates/csan-web/
+      # open http://localhost:8000/examples/web/
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>csan-web demo</title>
+  </head>
+  <body>
+    <h1>csan-web demo</h1>
+    <p>
+      Dickens, <em>Oliver Twist</em>: Cutter-Sanborn <code id="sanborn"
+      >…</code>, LoC <code id="loc">…</code>
+    </p>
+    <script type="module">
+    import init, { cutterLoc, cutterSanborn } from "../../pkg-web/csan_web.js";
+
+    await init();
+    const work = {
+      givenName: "Charles",
+      familyName: "Dickens",
+      title: "Oliver Twist",
+    };
+    document.getElementById("sanborn").textContent = cutterSanborn(work);
+    document.getElementById("loc").textContent = cutterLoc(work);
+    </script>
+  </body>
+</html>

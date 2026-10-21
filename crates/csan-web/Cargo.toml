@@ -1,0 +1,25 @@
+[package]
+name = "csan-web"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+repository.workspace = true
+description = "Cutter call number generation for JavaScript via WebAssembly"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+csan = { path = "../csan" }
+serde = { workspace = true }
+serde-wasm-bindgen = { workspace = true }
+wasm-bindgen = { workspace = true }
+
+[dev-dependencies]
+js-sys = { workspace = true }
+wasm-bindgen-test = { workspace = true }

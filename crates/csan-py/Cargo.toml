@@ -1,0 +1,30 @@
+[package]
+name = "csan-py"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+repository.workspace = true
+description = "Python bindings for Cutter call number generation"
+
+[lib]
+# The compiled extension module inside the `csan` Python package.
+name = "_csan"
+crate-type = ["cdylib"]
+# The extension-module feature omits libpython at link time, so a Rust test
+# harness for this crate cannot link. The binding functions are tested from
+# Python instead, against the built module, in tests/test_csan.py (run in
+# CI's python-package job); the shared logic they delegate to is covered by
+# the csan and csan-cli unit tests.
+test = false
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+csan = { path = "../csan" }
+csan-cli = { path = "../csan-cli" }
+pyo3 = { workspace = true }
+serde_json = { workspace = true }

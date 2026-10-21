@@ -1,33 +1,14 @@
-# cache
-__pycache__/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+/target
+**/target/
+.drafts/
+.vscode
+ideas.*
+todo.md
+vendor/
+# Typst compile outputs from the plugin test/example documents
+crates/csan-typst/pkg/**/*.pdf
 
-# envs
-.venv/
-venv/
-env/
-.env/
-.env.*
-.env
-ENV/
-
-# build artifacts
-build/
-dist/
-wheels/
-*.egg-info/
-*.py[cod]
-*.spec
-
-# misc
-*.log
-log.*
-.log.*
-draft*/
-.draft*
-
-# editors configs
-.vscode/
-.idea/
+# Generated npm packages from wasm-pack
+crates/csan-web/pkg/
+crates/csan-web/pkg-node/
+crates/csan-web/pkg-web/

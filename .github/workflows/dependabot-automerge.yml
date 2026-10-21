@@ -1,0 +1,51 @@
+name: Dependabot Auto-Merge
+
+# Required repository settings (do these once):
+# 1. Settings → General → Allow auto-merge          ← enable
+# 2. Settings → Actions → General → Workflow permissions → Read and write permissions
+# 3. Settings → Actions → General → Allow GitHub Actions to create and approve pull requests
+# 4. Settings → Branches → Branch protection rule on main:
+#      - Require a pull request before merging
+#      - Require status checks to pass before merging (select your real CI jobs)
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  dependabot:
+    runs-on: ubuntu-latest
+    # Use user.login (the PR author), not github.actor (whoever triggered
+    # this run).  github.actor can change on re-runs or force-pushes,
+    # whereas user.login is always the account that opened the PR.
+    # Ref: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/automating-dependabot-with-github-actions
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.repository == 'veralvx/imi'
+
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        # TODO: pin to full commit SHA for supply-chain hardening
+        #       (run: gh api repos/dependabot/fetch-metadata/git/ref/tags/v3.1.0)
+        uses: dependabot/fetch-metadata@v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for patch and minor updates
+        # update-type only emits version-update:semver-{patch,minor,major}.
+        # There is NO "security:" prefix; security updates carry the same
+        # semver labels.  To gate on security status, enable alert-lookup
+        # (requires a PAT) and check steps.metadata.outputs.alert-state.
+        if: >-
+          contains(
+            fromJSON('["version-update:semver-patch", "version-update:semver-minor"]'),
+            steps.metadata.outputs.update-type
+          )
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

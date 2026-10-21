@@ -1,0 +1,26 @@
+[package]
+name = "csan-typst"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+repository.workspace = true
+description = "Typst WASM plugin exposing csan's Cutter call number generation"
+
+[lib]
+crate-type = ["cdylib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+ciborium = { workspace = true }
+csan = { path = "../csan" }
+serde = { workspace = true }
+
+# The protocol macros only make sense (and only generate code) for the wasm
+# guest; keeping the dependency target-gated leaves host builds and tests
+# free of phantom wasm imports.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-minimal-protocol = { workspace = true }

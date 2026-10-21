@@ -1,0 +1,167 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.4.0"
+authors = ["VERALVX <veralvx@veralvx.com>"]
+# crates.io allows a maximum of 5 categories, chosen from the fixed slug
+# list at https://crates.io/category_slugs
+categories = ["text-processing"]
+documentation = "https://docs.rs/csan"
+edition = "2024"
+# crates.io allows a maximum of 5 keywords; each must start with an
+# alphanumeric character and only contain letters, numbers, _, - or +.
+keywords = ["cutter-sanborn", "cataloging", "call-number", "typst", "library"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/veralvx/csan"
+
+[workspace.lints.rust]
+absolute_paths_not_starting_with_crate = "deny"
+ambiguous-negative-literals = "deny"
+closure-returning-async-block = "warn"
+deref-into-dyn-supertrait = "deny"
+deprecated-in-future = "deny"
+deprecated-safe-2024 = "deny"
+elided_lifetimes_in_paths = "warn"
+explicit_outlives_requirements = "warn"
+if-let-rescope = "warn"
+impl-trait-overcaptures = "warn"
+let_underscore_drop = "deny"
+macro_use_extern_crate = "deny"
+missing_copy_implementations = "warn"
+missing_docs = "warn"
+non-ascii-idents = "deny"
+single_use_lifetimes = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+# The lint tables below reference clippy lints from the pinned toolchain
+# (rust-toolchain.toml). Older clippys do not know some of them yet, and
+# an unknown name in `[lints]` would otherwise warn the whole build.
+unknown_lints = "allow"
+unreachable_pub = "deny"
+unsafe_op_in_unsafe_fn = "deny"
+unused-crate-dependencies = "deny"
+unused_import_braces = "warn"
+unused_lifetimes = "warn"
+unused_macro_rules = "warn"
+unused_qualifications = "warn"
+variant_size_differences = "warn"
+# unsafe_code is guarded per crate rather than here: the four pure-Rust
+# crates use `#![forbid(unsafe_code)]`, and the two FFI binding crates
+# (csan-py, csan-web) use `#![deny(unsafe_code)]` because pyo3 and
+# wasm-bindgen macro expansions contain unsafe that `forbid` (which cannot
+# be overridden) would reject.
+
+# must_not_suspend = "warn" # nightly
+# lossy_provenance_casts = "warn" # nightly
+# fuzzy_provenance_casts = "deny" # nightly
+
+[workspace.lints.clippy]
+cargo = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+restriction = { level = "warn", priority = -1 }
+
+# The three groups above are deliberate project policy. `restriction` is
+# not designed to be enabled wholesale, so the allows below carve out the
+# lints that are wrong *for this workspace* (a library crate plus a Typst
+# WASM plugin). Every correctness-signal lint stays enabled:
+# arithmetic_side_effects, indexing_slicing, string_slice, unwrap_used,
+# expect_used, panic, unreachable, unwrap_in_result, map_err_ignore,
+# shadow_unrelated, and all cast_* lints are addressed per-site with real
+# fixes, never blanket allows.
+blanket_clippy_restriction_lints = "allow" # the group-enable itself is the documented policy
+
+# -- mutually-exclusive style pairs: one side must be allowed ----------
+pub_with_shorthand = "allow" # house style is `pub(crate)`, not `pub(in crate)`
+separated_literal_suffix = "allow" # house style is `4096_u64`; unseparated_literal_suffix stays on
+semicolon_outside_block = "allow" # house style is `{ .. };` — the inside-block pair stays on
+self_named_module_files = "allow" # house layout is `foo.rs` + `foo/`; mod_module_files stays on
+multiple_crate_versions = "allow"
+# -- library API shape this workspace chooses deliberately -------------
+pub_use = "allow" # curated re-export facades (crate root, catalog::models) are the public API
+module_name_repetitions = "allow" # `normalization::NormalizationError` etc. read correctly at the re-exported call sites
+impl_trait_in_params = "allow" # `impl Into<String>` constructors are the intended ergonomic surface
+inline_trait_bounds = "allow" # inline `impl Trait` / `<T: Bound>` bounds are house style over where-clauses
+exhaustive_enums = "allow" # `Attribution` is core domain data; matching on it is the API
+exhaustive_structs = "allow" # `CutterConfig` is constructed with struct literals + `..Default::default()`
+missing_inline_in_public_items = "allow" # cross-crate inlining is left to LTO (enabled in release)
+
+# -- documentation policy ----------------------------------------------
+missing_docs_in_private_items = "allow" # the public API is fully documented (enforced by rustc
+# `missing_docs`); demanding docs on every private field,
+# helper, and #[test] fn is noise, not signal
+doc_paragraphs_missing_punctuation = "allow" # doc summaries deliberately use fragment style in places
+
+# -- style choices this codebase makes deliberately --------------------
+implicit_return = "allow"
+min_ident_chars = "allow"
+question_mark_used = "allow"
+single_call_fn = "allow" # single-use helpers are the decomposition style
+inline_modules = "allow" # small `#[cfg(test)] mod tests` style modules stay inline
+missing_trait_methods = "allow" # provided trait methods (UsesTable::retrieve_*) are the point of the trait
+arbitrary_source_item_ordering = "allow" # files are ordered pedagogically (pipeline order),
+# not alphabetically
+unused_trait_names = "allow" # `use Trait as _` churn without benefit here
+shadow_reuse = "allow" # idiomatic rebinding (`let s = s.trim()`);
+shadow_same = "allow" # shadow_unrelated remains ENABLED
+default_numeric_fallback = "allow" # suffixing every inferred literal is noise
+non_ascii_literal = "allow" # the diacritic-folding tables are made of non-ASCII char literals
+pattern_type_mismatch = "allow" # match ergonomics are idiomatic Rust
+single_char_lifetime_names = "allow" # 'a is idiomatic
+print_stdout = "allow" # examples/ and the CLI print results to stdout
+print_stderr = "allow" # CLI diagnostics go to stderr
+integer_division = "allow" # digit-splitting math is intended integer math;
+integer_division_remainder_used = "allow" # overflow concerns are covered by
+# arithmetic_side_effects, which stays enabled
+std_instead_of_core = "allow" # std-first house style; wasm32-unknown-unknown ships std
+std_instead_of_alloc = "allow" # same
+
+[workspace.metadata]
+changelog = "CHANGELOG.md"
+
+[workspace.dependencies]
+ciborium = "0.2.2"
+clap = { version = "4.5", features = ["derive"] }
+derive_more = { version = "2.1", features = ["display", "error"] }
+js-sys = "0.3"
+pyo3 = { version = "0.30.1", features = ["extension-module", "abi3-py39"] }
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6.5"
+serde_json = "1.0"
+wasm-bindgen = "0.2.129"
+wasm-bindgen-test = "0.3.79"
+
+# The guest-side helper macros for the Typst plugin protocol
+# (https://typst.app/docs/reference/foundations/plugin/#protocol).
+wasm-minimal-protocol = "0.2"
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.debugging]
+inherits = "dev"
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+debug = false
+debug-assertions = false
+panic = 'abort'
+
+[profile.wasm]
+inherits = "release"
+opt-level = 'z'
+
+[profile.dist]
+inherits = "release"
+
+# [dist.github-custom-runners]
+# global = "ubuntu-22.04"

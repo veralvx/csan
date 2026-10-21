@@ -1,0 +1,61 @@
+name: Dprint Formatting Checks
+
+on:
+  push:
+    paths:
+      # GitHub Actions path filters do NOT support brace expansion {a,b}.
+      # Each extension must be its own entry.
+      - "**/*.md"
+      - "**/*.markdown"
+      - "**/*.yml"
+      - "**/*.yaml"
+      - "**/*.json"
+      - "**/*.jsonc"
+      - "**/*.js"
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.jsx"
+      - "**/*.html"
+      - "**/*.css"
+      - "**/*.scss"
+      - "**/*.toml"
+      - "**/Dockerfile"
+      - ".github/workflows/style-check-dprint.yml"
+  pull_request:
+    paths:
+      - "**/*.md"
+      - "**/*.markdown"
+      - "**/*.yml"
+      - "**/*.yaml"
+      - "**/*.json"
+      - "**/*.jsonc"
+      - "**/*.js"
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.jsx"
+      - "**/*.html"
+      - "**/*.css"
+      - "**/*.scss"
+      - "**/*.toml"
+      - "**/Dockerfile"
+      - ".github/workflows/style-check-dprint.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dprint:
+    name: dprint check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Dprint format check
+        uses: dprint/check@v2.3
+        with:
+          config-path: dprint.json

@@ -1,0 +1,9 @@
+allow-indexing-slicing-in-tests = true
+allow-panic-in-tests = true
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-dbg-in-tests = true
+# `CutterLocMethod::generate` walks the LoC digit rules top-to-bottom by
+# design; keep the ceiling generous enough that the pipeline reads as one
+# function instead of being shredded for the lint's sake.
+too-many-lines-threshold = 120
