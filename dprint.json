@@ -12,7 +12,7 @@
   "excludes": [
     "**/node_modules",
     "**/*-lock.json",
-    "cliff.toml"
+    "cliff.toml",
     "CHANGELOG.md"
   ],
   "plugins": [
