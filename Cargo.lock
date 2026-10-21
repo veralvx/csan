@@ -196,7 +196,7 @@ dependencies = [
 
 [[package]]
 name = "csan-cli"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "clap",
  "csan",
@@ -215,7 +215,7 @@ dependencies = [
 
 [[package]]
 name = "csan-typst"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "ciborium",
  "csan",

@@ -1,6 +1,6 @@
 [package]
 name = "csan-cli"
-version = "0.5.3"
+version = "0.5.4"
 authors.workspace = true
 categories = ["command-line-utilities", "command-line-interface", "text-processing"]
 documentation.workspace = true
