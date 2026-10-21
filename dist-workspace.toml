@@ -1,5 +1,5 @@
 [workspace]
-members = ["cargo:."]
+members = ["cargo:crates/csan-cli"]
 
 # Config for 'dist'
 [dist]
