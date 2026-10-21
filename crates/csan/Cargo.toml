@@ -2,7 +2,7 @@
 name = "csan"
 version.workspace = true
 authors.workspace = true
-categories = ["Text processing "]
+categories = ["Text processing"]
 documentation.workspace = true
 edition.workspace = true
 keywords.workspace = true
