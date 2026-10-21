@@ -23,3 +23,6 @@ wasm-bindgen = { workspace = true }
 [dev-dependencies]
 js-sys = { workspace = true }
 wasm-bindgen-test = { workspace = true }
+
+[package.metadata.dist]
+dist = false
