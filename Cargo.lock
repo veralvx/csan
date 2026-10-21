@@ -187,7 +187,7 @@ checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 
 [[package]]
 name = "csan"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "derive_more",
  "serde",
@@ -196,7 +196,7 @@ dependencies = [
 
 [[package]]
 name = "csan-cli"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "clap",
  "csan",
@@ -205,7 +205,7 @@ dependencies = [
 
 [[package]]
 name = "csan-py"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "csan",
  "csan-cli",
@@ -225,7 +225,7 @@ dependencies = [
 
 [[package]]
 name = "csan-web"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "csan",
  "js-sys",
