@@ -16,7 +16,7 @@ use std::ffi::OsString;
 /// Generate Cutter call numbers for library cataloging.
 ///
 /// Provide at least one method flag (`--cutter-sanborn`, `--cutter-loc`)
-/// and at least one non-blank input (`--given-name`, `--family-name`,
+/// and at least one non-blank input (`--forename`, `--surname`,
 /// `--title`). With both method flags, the Cutter-Sanborn number is
 /// printed first, each on its own line.
 #[derive(Debug, Parser)]
@@ -37,11 +37,11 @@ pub struct Cli {
 
     /// The author's given (first) name
     #[arg(long, value_name = "NAME")]
-    pub given_name: Option<String>,
+    pub forename: Option<String>,
 
     /// The author's family (last) name
     #[arg(long, value_name = "NAME")]
-    pub family_name: Option<String>,
+    pub surname: Option<String>,
 
     /// The work's title (used for the work mark, or for title-derived
     /// cutters when no author is given)
@@ -81,13 +81,13 @@ pub fn run(cli: &Cli) -> Result<String, String> {
     }
 
     let attribution = Attribution::from_parts(
-        cli.given_name.as_deref(),
-        cli.family_name.as_deref(),
+        cli.forename.as_deref(),
+        cli.surname.as_deref(),
         cli.title.as_deref(),
     )
     .ok_or_else(|| {
         String::from(
-            "provide at least one non-blank input: --given-name, --family-name, or --title",
+            "provide at least one non-blank input: --forename, --surname, or --title",
         )
     })?;
 
@@ -187,7 +187,7 @@ mod tests {
     #[test]
     fn run_from_args_maps_outcomes_to_exit_codes() {
         assert_eq!(
-            run_from_args(["csan", "--cutter-loc", "--family-name", "Carter"]),
+            run_from_args(["csan", "--cutter-loc", "--surname", "Carter"]),
             0
         );
         assert_eq!(run_from_args(["csan", "--help"]), 0);
@@ -195,7 +195,7 @@ mod tests {
         assert_eq!(run_from_args(["csan", "--no-such-flag"]), 2);
         assert_eq!(run_from_args(["csan"]), 2, "missing method group");
         assert_eq!(
-            run_from_args(["csan", "--cutter-loc", "--family-name", "  "]),
+            run_from_args(["csan", "--cutter-loc", "--surname", "  "]),
             1,
             "blank input is a runtime failure"
         );
@@ -213,8 +213,8 @@ mod tests {
         let cli = Cli {
             cutter_sanborn: false,
             cutter_loc: false,
-            given_name: None,
-            family_name: Some("Dickens".to_owned()),
+            forename: None,
+            surname: Some("Dickens".to_owned()),
             title: None,
             prefix_len: 1,
             suffix_len: 1,
@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn a_method_flag_is_required() {
-        let err = parse(&["csan", "--family-name", "Dickens"]).unwrap_err();
+        let err = parse(&["csan", "--surname", "Dickens"]).unwrap_err();
         assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
     }
 
@@ -235,9 +235,9 @@ mod tests {
         let cli = parse(&[
             "csan",
             "--cutter-sanborn",
-            "--given-name",
+            "--forename",
             "Charles",
-            "--family-name",
+            "--surname",
             "Dickens",
             "--title",
             "Oliver Twist",
@@ -252,7 +252,7 @@ mod tests {
             "csan",
             "--cutter-sanborn",
             "--cutter-loc",
-            "--family-name",
+            "--surname",
             "Carter",
         ])
         .unwrap();
@@ -264,9 +264,9 @@ mod tests {
         let cli = parse(&[
             "csan",
             "--cutter-sanborn",
-            "--given-name",
+            "--forename",
             "Charles",
-            "--family-name",
+            "--surname",
             "Dickens",
             "--title",
             "Oliver Twist",
@@ -281,7 +281,7 @@ mod tests {
         let loc = parse(&[
             "csan",
             "--cutter-loc",
-            "--family-name",
+            "--surname",
             "Macdonald",
             "--max-len",
             "4",
@@ -298,9 +298,9 @@ mod tests {
 
     #[test]
     fn blank_inputs_error_with_guidance() {
-        let cli = parse(&["csan", "--cutter-loc", "--family-name", "   "]).unwrap();
+        let cli = parse(&["csan", "--cutter-loc", "--surname", "   "]).unwrap();
         let err = run(&cli).unwrap_err();
-        assert!(err.contains("--family-name"), "unhelpful message: {err}");
+        assert!(err.contains("--surname"), "unhelpful message: {err}");
     }
 
     #[test]
@@ -310,9 +310,9 @@ mod tests {
             "--cutter-sanborn",
             "--cutter-loc",
             "--json",
-            "--given-name",
+            "--forename",
             "Charles",
-            "--family-name",
+            "--surname",
             "Dickens",
             "--title",
             "Oliver Twist",

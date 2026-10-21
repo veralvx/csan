@@ -15,7 +15,7 @@
 //! | `cutter_loc_fmt` | the `LoC` cutter number as a UTF-8 string        |
 //!
 //! The argument map accepts `title` (string), `author` (map with optional
-//! `given_name`/`family_name`), and the optional tuning knobs `prefix_len`,
+//! `forename`/`surname`), and the optional tuning knobs `prefix_len`,
 //! `suffix_len`, and `max_len` (see [`CutterConfig`]). At least one of
 //! `author`/`title` must be usable. Errors are reported as protocol error
 //! strings, which Typst surfaces as diagnostics.
@@ -67,15 +67,15 @@ impl EntryArgs {
     /// Resolves the argument map into an [`Attribution`].
     ///
     /// Delegates to [`Attribution::from_parts`], so blank strings are
-    /// treated as absent — per field: `{"author": {"family_name": " ",
-    /// "given_name": "Prince"}}` cutters on the given name, and
-    /// `{"author": {"family_name": " "}, "title": "Dune"}` falls back to a
+    /// treated as absent — per field: `{"author": {"surname": " ",
+    /// "forename": "Prince"}}` cutters on the given name, and
+    /// `{"author": {"surname": " "}, "title": "Dune"}` falls back to a
     /// title-derived cutter instead of erroring.
     fn attribution(self) -> Result<Attribution, String> {
         let author = self.author.as_ref();
         Attribution::from_parts(
-            author.and_then(Author::given_name),
-            author.and_then(Author::family_name),
+            author.and_then(Author::forename),
+            author.and_then(Author::surname),
             self.title.as_deref(),
         )
         .ok_or_else(|| {
@@ -178,13 +178,13 @@ mod tests {
         let mut entries = Vec::new();
         if let Some(g) = given {
             entries.push((
-                Value::Text("given_name".to_owned()),
+                Value::Text("forename".to_owned()),
                 Value::Text(g.to_owned()),
             ));
         }
         if let Some(f) = family {
             entries.push((
-                Value::Text("family_name".to_owned()),
+                Value::Text("surname".to_owned()),
                 Value::Text(f.to_owned()),
             ));
         }

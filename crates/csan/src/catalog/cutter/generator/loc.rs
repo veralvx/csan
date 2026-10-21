@@ -226,8 +226,8 @@ impl CutterGenerator for CutterLocMethod {
 
         let raw_str = match entry {
             Attribution::Both { author, .. } | Attribution::AuthorOnly(author) => author
-                .family_name()
-                .or_else(|| author.given_name())
+                .surname()
+                .or_else(|| author.forename())
                 .ok_or(NormalizationError::EmptyString)?,
             Attribution::OpusOnly(opus) => opus.title(),
         };
@@ -365,7 +365,7 @@ mod tests {
     }
 
     #[test]
-    fn given_only_author_uses_given_name() {
+    fn given_only_author_uses_forename() {
         let attr = Attribution::AuthorOnly(Author::given_only("Prince"));
         let result = CutterLocMethod::generate(&attr, CutterConfig::default()).unwrap();
         assert_eq!(result, CutterLoc::new('P', 756));

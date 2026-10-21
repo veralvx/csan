@@ -26,13 +26,13 @@ use std::iter;
 /// Builds the [`Attribution`] for a set of optional inputs, with a
 /// Python-friendly error.
 fn attribution(
-    given_name: Option<&str>,
-    family_name: Option<&str>,
+    forename: Option<&str>,
+    surname: Option<&str>,
     title: Option<&str>,
 ) -> PyResult<Attribution> {
-    Attribution::from_parts(given_name, family_name, title).ok_or_else(|| {
+    Attribution::from_parts(forename, surname, title).ok_or_else(|| {
         PyValueError::new_err(
-            "provide at least one non-blank input: given_name, family_name, or title",
+            "provide at least one non-blank input: forename, surname, or title",
         )
     })
 }
@@ -45,44 +45,44 @@ fn generation_error(error: &impl fmt::Display) -> PyErr {
 /// Generates the Cutter-Sanborn value shared by both `cutter_sanborn`
 /// variants.
 fn sanborn(
-    given_name: Option<&str>,
-    family_name: Option<&str>,
+    forename: Option<&str>,
+    surname: Option<&str>,
     title: Option<&str>,
     prefix_len: Option<usize>,
     suffix_len: Option<usize>,
 ) -> PyResult<CutterSanborn> {
-    let entry = attribution(given_name, family_name, title)?;
+    let entry = attribution(forename, surname, title)?;
     let config = CutterConfig::from_overrides(prefix_len, suffix_len, None);
     CutterSanbornMethod::generate(&entry, config).map_err(|e| generation_error(&e))
 }
 
 /// Generates the `LoC` value shared by both `cutter_loc` variants.
 fn loc(
-    given_name: Option<&str>,
-    family_name: Option<&str>,
+    forename: Option<&str>,
+    surname: Option<&str>,
     title: Option<&str>,
     max_len: Option<usize>,
 ) -> PyResult<CutterLoc> {
-    let entry = attribution(given_name, family_name, title)?;
+    let entry = attribution(forename, surname, title)?;
     let config = CutterConfig::from_overrides(None, None, max_len);
     CutterLocMethod::generate(&entry, config).map_err(|e| generation_error(&e))
 }
 
 /// Return the Cutter-Sanborn call number as a string (e.g. ``"D548o"``).
 ///
-/// At least one of ``given_name``, ``family_name``, or ``title`` must be
+/// At least one of ``forename``, ``surname``, or ``title`` must be
 /// non-blank; blank strings count as absent. ``prefix_len`` and
 /// ``suffix_len`` default to 1. Raises ``ValueError`` on unusable input.
 #[pyfunction]
-#[pyo3(signature = (given_name=None, family_name=None, title=None, prefix_len=None, suffix_len=None))]
+#[pyo3(signature = (forename=None, surname=None, title=None, prefix_len=None, suffix_len=None))]
 fn cutter_sanborn(
-    given_name: Option<&str>,
-    family_name: Option<&str>,
+    forename: Option<&str>,
+    surname: Option<&str>,
     title: Option<&str>,
     prefix_len: Option<usize>,
     suffix_len: Option<usize>,
 ) -> PyResult<String> {
-    Ok(sanborn(given_name, family_name, title, prefix_len, suffix_len)?.to_string())
+    Ok(sanborn(forename, surname, title, prefix_len, suffix_len)?.to_string())
 }
 
 /// Converts a JSON value produced by [`detailed_json`] into the equivalent
@@ -146,16 +146,16 @@ fn detailed_dict<'py>(py: Python<'py>, value: &Value) -> PyResult<Bound<'py, PyD
 }
 
 #[pyfunction]
-#[pyo3(signature = (given_name=None, family_name=None, title=None, prefix_len=None, suffix_len=None))]
+#[pyo3(signature = (forename=None, surname=None, title=None, prefix_len=None, suffix_len=None))]
 fn cutter_sanborn_detailed<'py>(
     py: Python<'py>,
-    given_name: Option<&str>,
-    family_name: Option<&str>,
+    forename: Option<&str>,
+    surname: Option<&str>,
     title: Option<&str>,
     prefix_len: Option<usize>,
     suffix_len: Option<usize>,
 ) -> PyResult<Bound<'py, PyDict>> {
-    let cutter = sanborn(given_name, family_name, title, prefix_len, suffix_len)?;
+    let cutter = sanborn(forename, surname, title, prefix_len, suffix_len)?;
     let value = detailed_json(&cutter).map_err(|e| PyValueError::new_err(e.to_string()))?;
     detailed_dict(py, &value)
 }
@@ -163,18 +163,18 @@ fn cutter_sanborn_detailed<'py>(
 /// Return the Library of Congress cutter number as a string
 /// (e.g. ``"C378"``).
 ///
-/// At least one of ``given_name``, ``family_name``, or ``title`` must be
+/// At least one of ``forename``, ``surname``, or ``title`` must be
 /// non-blank; blank strings count as absent. ``max_len`` defaults to 3 and
 /// is clamped to 4. Raises ``ValueError`` on unusable input.
 #[pyfunction]
-#[pyo3(signature = (given_name=None, family_name=None, title=None, max_len=None))]
+#[pyo3(signature = (forename=None, surname=None, title=None, max_len=None))]
 fn cutter_loc(
-    given_name: Option<&str>,
-    family_name: Option<&str>,
+    forename: Option<&str>,
+    surname: Option<&str>,
     title: Option<&str>,
     max_len: Option<usize>,
 ) -> PyResult<String> {
-    Ok(loc(given_name, family_name, title, max_len)?.to_string())
+    Ok(loc(forename, surname, title, max_len)?.to_string())
 }
 
 /// Return the parts of the Library of Congress number as a dict with the
@@ -182,15 +182,15 @@ fn cutter_loc(
 ///
 /// Accepts the same arguments as :func:`cutter_loc`.
 #[pyfunction]
-#[pyo3(signature = (given_name=None, family_name=None, title=None, max_len=None))]
+#[pyo3(signature = (forename=None, surname=None, title=None, max_len=None))]
 fn cutter_loc_detailed<'py>(
     py: Python<'py>,
-    given_name: Option<&str>,
-    family_name: Option<&str>,
+    forename: Option<&str>,
+    surname: Option<&str>,
     title: Option<&str>,
     max_len: Option<usize>,
 ) -> PyResult<Bound<'py, PyDict>> {
-    let cutter = loc(given_name, family_name, title, max_len)?;
+    let cutter = loc(forename, surname, title, max_len)?;
     let value = detailed_json(&cutter).map_err(|e| PyValueError::new_err(e.to_string()))?;
     detailed_dict(py, &value)
 }

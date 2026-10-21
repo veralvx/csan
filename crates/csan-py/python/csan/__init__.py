@@ -5,14 +5,14 @@ cutter numbers from author names or titles::
 
     import csan
 
-    csan.cutter_sanborn(given_name="Charles", family_name="Dickens",
+    csan.cutter_sanborn(forename="Charles", surname="Dickens",
                           title="Oliver Twist")   # 'D548o'
-    csan.cutter_loc(family_name="Carter")       # 'C378'
-    csan.cutter_sanborn_detailed(family_name="Borges")
+    csan.cutter_loc(surname="Carter")       # 'C378'
+    csan.cutter_sanborn_detailed(surname="Borges")
     # {'alpha_prefix': 'B', 'numeric': 732, 'alpha_suffix': None,
     #  'entry': 'Borg', 'formatted': 'B732'}
 
-At least one of ``given_name``/``family_name``/``title`` must be
+At least one of ``forename``/``surname``/``title`` must be
 non-blank; blank strings count as absent. Unusable input raises
 ``ValueError``.
 

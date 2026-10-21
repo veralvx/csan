@@ -26,27 +26,27 @@ import csan
 def test_cutter_sanborn_with_author_and_title():
     assert (
         csan.cutter_sanborn(
-            given_name="Charles", family_name="Dickens", title="Oliver Twist"
+            forename="Charles", surname="Dickens", title="Oliver Twist"
         )
         == "D548o"
     )
 
 
 def test_cutter_sanborn_family_only():
-    assert csan.cutter_sanborn(family_name="Borges") == "B732"
+    assert csan.cutter_sanborn(surname="Borges") == "B732"
 
 
 def test_cutter_sanborn_given_only_matches_family_only():
     # A lone given name is cuttered like a lone family name.
-    assert csan.cutter_sanborn(given_name="Prince") == csan.cutter_sanborn(
-        family_name="Prince"
+    assert csan.cutter_sanborn(forename="Prince") == csan.cutter_sanborn(
+        surname="Prince"
     )
 
 
 def test_cutter_sanborn_honors_prefix_and_suffix_len():
     assert (
         csan.cutter_sanborn(
-            family_name="Dickens",
+            surname="Dickens",
             title="Oliver Twist",
             prefix_len=2,
             suffix_len=3,
@@ -56,7 +56,7 @@ def test_cutter_sanborn_honors_prefix_and_suffix_len():
 
 
 def test_cutter_sanborn_positional_arguments():
-    # The signature is (given_name, family_name, title, prefix_len, suffix_len).
+    # The signature is (forename, surname, title, prefix_len, suffix_len).
     assert csan.cutter_sanborn("Charles", "Dickens", "Oliver Twist") == "D548o"
 
 
@@ -65,7 +65,7 @@ def test_cutter_sanborn_positional_arguments():
 # --------------------------------------------------------------------------
 def test_cutter_sanborn_detailed_shape():
     result = csan.cutter_sanborn_detailed(
-        given_name="Charles", family_name="Dickens", title="Oliver Twist"
+        forename="Charles", surname="Dickens", title="Oliver Twist"
     )
     assert result == {
         "alpha_prefix": "D",
@@ -79,7 +79,7 @@ def test_cutter_sanborn_detailed_shape():
 
 
 def test_cutter_sanborn_detailed_without_work_mark():
-    result = csan.cutter_sanborn_detailed(family_name="Borges")
+    result = csan.cutter_sanborn_detailed(surname="Borges")
     assert result["alpha_suffix"] is None
     assert result["entry"] == "Borg"
     assert result["numeric"] == 732
@@ -90,7 +90,7 @@ def test_cutter_sanborn_detailed_without_work_mark():
 # cutter_loc
 # --------------------------------------------------------------------------
 def test_cutter_loc_known_value():
-    assert csan.cutter_loc(family_name="Carter") == "C378"
+    assert csan.cutter_loc(surname="Carter") == "C378"
 
 
 def test_cutter_loc_title_numeral_rule():
@@ -99,15 +99,15 @@ def test_cutter_loc_title_numeral_rule():
 
 def test_cutter_loc_max_len_is_clamped():
     # max_len above 4 is clamped rather than overflowing.
-    assert csan.cutter_loc(family_name="Macdonald", max_len=64) == "M3336"
-    assert csan.cutter_loc(family_name="Macdonald", max_len=1) == "M3"
+    assert csan.cutter_loc(surname="Macdonald", max_len=64) == "M3336"
+    assert csan.cutter_loc(surname="Macdonald", max_len=1) == "M3"
 
 
 # --------------------------------------------------------------------------
 # cutter_loc_detailed
 # --------------------------------------------------------------------------
 def test_cutter_loc_detailed_shape():
-    result = csan.cutter_loc_detailed(family_name="Carter")
+    result = csan.cutter_loc_detailed(surname="Carter")
     assert result == {"alpha_prefix": "C", "numeric": 378, "formatted": "C378"}
     # `numeric` must be an int, not a float (== would accept 378.0).
     assert type(result["numeric"]) is int
@@ -129,14 +129,14 @@ def test_missing_input_raises_value_error(func):
 )
 def test_blank_input_raises_with_field_names(func):
     with pytest.raises(ValueError) as excinfo:
-        func(family_name="   ")
-    assert "family_name" in str(excinfo.value)
+        func(surname="   ")
+    assert "surname" in str(excinfo.value)
 
 
 def test_untransliterable_name_raises_value_error():
     # A name that normalizes to nothing surfaces as ValueError, not a panic.
     with pytest.raises(ValueError):
-        csan.cutter_sanborn(family_name="!!!")
+        csan.cutter_sanborn(surname="!!!")
 
 
 # --------------------------------------------------------------------------
@@ -144,27 +144,27 @@ def test_untransliterable_name_raises_value_error():
 # --------------------------------------------------------------------------
 def test_run_cli_success_returns_zero(capfd):
     code = csan.run_cli(
-        ["--cutter-sanborn", "--family-name", "Dickens", "--title", "Oliver Twist"]
+        ["--cutter-sanborn", "--surname", "Dickens", "--title", "Oliver Twist"]
     )
     assert code == 0
     assert capfd.readouterr().out.strip() == "D548o"
 
 
 def test_run_cli_both_methods_prints_two_lines(capfd):
-    code = csan.run_cli(["--cutter-sanborn", "--cutter-loc", "--family-name", "Carter"])
+    code = csan.run_cli(["--cutter-sanborn", "--cutter-loc", "--surname", "Carter"])
     assert code == 0
     assert capfd.readouterr().out.strip().splitlines() == ["C323", "C378"]
 
 
 def test_run_cli_runtime_error_returns_one(capfd):
-    code = csan.run_cli(["--cutter-loc", "--family-name", "   "])
+    code = csan.run_cli(["--cutter-loc", "--surname", "   "])
     assert code == 1
-    assert "family-name" in capfd.readouterr().err
+    assert "surname" in capfd.readouterr().err
 
 
 def test_run_cli_usage_error_returns_two():
     # No method flag is a clap usage error.
-    assert csan.run_cli(["--family-name", "Dickens"]) == 2
+    assert csan.run_cli(["--surname", "Dickens"]) == 2
 
 
 def test_run_cli_help_returns_zero():
@@ -194,7 +194,7 @@ def test_public_api_is_exported():
 
 def test_main_exits_with_run_cli_code(monkeypatch):
     # main() wraps run_cli and raises SystemExit with its return code.
-    monkeypatch.setattr(sys, "argv", ["csan", "--family-name", "Dickens"])
+    monkeypatch.setattr(sys, "argv", ["csan", "--surname", "Dickens"])
     with pytest.raises(SystemExit) as excinfo:
         csan.main()
     assert excinfo.value.code == 2
@@ -211,7 +211,7 @@ def test_console_script_is_installed():
         [
             str(script),
             "--cutter-sanborn",
-            "--family-name",
+            "--surname",
             "Dickens",
             "--title",
             "Oliver Twist",

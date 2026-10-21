@@ -52,12 +52,12 @@ impl Attribution {
     /// ```
     #[must_use]
     pub fn from_parts(
-        given_name: Option<&str>,
-        family_name: Option<&str>,
+        forename: Option<&str>,
+        surname: Option<&str>,
         title: Option<&str>,
     ) -> Option<Self> {
-        let given = given_name.map(str::trim).filter(|n| !n.is_empty());
-        let family = family_name.map(str::trim).filter(|n| !n.is_empty());
+        let given = forename.map(str::trim).filter(|n| !n.is_empty());
+        let family = surname.map(str::trim).filter(|n| !n.is_empty());
         let author = match (given, family) {
             (Some(g), Some(f)) => Some(Author::new(g, f)),
             (None, Some(f)) => Some(Author::family_only(f)),
@@ -107,8 +107,8 @@ mod tests {
         else {
             panic!("expected an author-only attribution");
         };
-        assert_eq!(author.given_name(), Some("Prince"));
-        assert_eq!(author.family_name(), None);
+        assert_eq!(author.forename(), Some("Prince"));
+        assert_eq!(author.surname(), None);
 
         assert!(Attribution::from_parts(Some(""), Some("  "), Some("\t")).is_none());
     }
@@ -120,8 +120,8 @@ mod tests {
         else {
             panic!("expected a both attribution");
         };
-        assert_eq!(author.given_name(), Some("Charles"));
-        assert_eq!(author.family_name(), Some("Dickens"));
+        assert_eq!(author.forename(), Some("Charles"));
+        assert_eq!(author.surname(), Some("Dickens"));
         assert_eq!(opus.title(), "Oliver");
     }
 }

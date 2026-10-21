@@ -12,16 +12,16 @@ uv tool install csan    # just the CLI, isolated
 ```python
 import csan
 
-csan.cutter_sanborn(given_name="Charles", family_name="Dickens",
+csan.cutter_sanborn(forename="Charles", surname="Dickens",
                       title="Oliver Twist")   # 'D548o'
-csan.cutter_loc(family_name="Carter")       # 'C378'
+csan.cutter_loc(surname="Carter")       # 'C378'
 
-csan.cutter_sanborn_detailed(family_name="Borges")
+csan.cutter_sanborn_detailed(surname="Borges")
 # {'alpha_prefix': 'B', 'numeric': 732, 'alpha_suffix': None,
 #  'entry': 'Borg', 'formatted': 'B732'}
 ```
 
-Every function accepts `given_name`, `family_name`, and `title` keyword
+Every function accepts `forename`, `surname`, and `title` keyword
 arguments (at least one must be non-blank; blank strings count as absent).
 `cutter_sanborn*` also take `prefix_len` and `suffix_len`; `cutter_loc*`
 take `max_len` (clamped to 4). The `*_detailed` variants return a dict of
@@ -32,7 +32,7 @@ The console script is the same interface as the standalone Rust binary:
 
 ```sh
 csan --cutter-sanborn --cutter-loc \
-  --given-name Charles --family-name Dickens --title "Oliver Twist"
+  --forename Charles --surname Dickens --title "Oliver Twist"
 ```
 
 ## Building from source

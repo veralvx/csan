@@ -12,15 +12,15 @@
   table.header([*Author*], [*Title*], [*Cutter-Sanborn*], [*LoC*]),
   [Charles Dickens], [Oliver Twist],
   [#cutter-sanborn(
-      given-name: "Charles",
-      family-name: "Dickens",
+      forename: "Charles",
+      surname: "Dickens",
       title: "Oliver Twist",
     )],
-  [#cutter-loc(family-name: "Dickens")],
+  [#cutter-loc(surname: "Dickens")],
 
   [Jorge Luis Borges], [Ficciones],
-  [#cutter-sanborn(family-name: "Borges", title: "Ficciones")],
-  [#cutter-loc(family-name: "Borges")],
+  [#cutter-sanborn(surname: "Borges", title: "Ficciones")],
+  [#cutter-loc(surname: "Borges")],
 
   [—], [100 best hamburger recipes],
   [#cutter-sanborn(title: "100 best hamburger recipes")],
@@ -28,4 +28,4 @@
 )
 
 The full call number for a work shelved under QA76.73:
-`QA76.73 .#cutter-sanborn(given-name: "Graydon", family-name: "Hoare")`
+`QA76.73 .#cutter-sanborn(forename: "Graydon", surname: "Hoare")`

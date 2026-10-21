@@ -54,8 +54,8 @@ pub trait UsesTable {
     ) -> Result<(&'static str, CutterNumType, String), NormalizationError> {
         let working_name: Cow<'_, str> = match entry {
             Attribution::AuthorOnly(author) | Attribution::Both { author, .. } => {
-                let family_opt = author.family_name_normalized()?;
-                let given_opt = author.given_name_normalized()?;
+                let family_opt = author.surname_normalized()?;
+                let given_opt = author.forename_normalized()?;
 
                 match (family_opt, given_opt) {
                     (Some(family), Some(given)) => {

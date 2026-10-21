@@ -40,9 +40,9 @@ use wasm_bindgen::prelude::{JsError, JsValue, wasm_bindgen};
 #[serde(rename_all = "camelCase", default)]
 pub struct SanbornOptions {
     /// The author's given (first) name.
-    pub given_name: Option<String>,
+    pub forename: Option<String>,
     /// The author's family (last) name.
-    pub family_name: Option<String>,
+    pub surname: Option<String>,
     /// The work's title (work mark source, or title-derived cutters).
     pub title: Option<String>,
     /// Letters taken from the name for the call number prefix (default 1).
@@ -56,9 +56,9 @@ pub struct SanbornOptions {
 #[serde(rename_all = "camelCase", default)]
 pub struct LocOptions {
     /// The author's given (first) name.
-    pub given_name: Option<String>,
+    pub forename: Option<String>,
     /// The author's family (last) name.
-    pub family_name: Option<String>,
+    pub surname: Option<String>,
     /// The work's title (used when no author is given).
     pub title: Option<String>,
     /// Digits in the number, clamped to 4 by the library (default 3).
@@ -83,8 +83,8 @@ fn attribution(
 /// Returns a message when no usable input was provided or generation fails.
 pub fn sanborn_impl(options: &SanbornOptions) -> Result<CutterSanborn, String> {
     let entry = attribution(
-        options.given_name.as_deref(),
-        options.family_name.as_deref(),
+        options.forename.as_deref(),
+        options.surname.as_deref(),
         options.title.as_deref(),
     )?;
     let config = CutterConfig::from_overrides(options.prefix_len, options.suffix_len, None);
@@ -97,8 +97,8 @@ pub fn sanborn_impl(options: &SanbornOptions) -> Result<CutterSanborn, String> {
 /// Returns a message when no usable input was provided or generation fails.
 pub fn loc_impl(options: &LocOptions) -> Result<CutterLoc, String> {
     let entry = attribution(
-        options.given_name.as_deref(),
-        options.family_name.as_deref(),
+        options.forename.as_deref(),
+        options.surname.as_deref(),
         options.title.as_deref(),
     )?;
     let config = CutterConfig::from_overrides(None, None, options.max_len);
@@ -197,8 +197,8 @@ mod tests {
         #[test]
         fn sanborn_impl_matches_known_values() {
             let options = SanbornOptions {
-                given_name: Some("Charles".to_owned()),
-                family_name: Some("Dickens".to_owned()),
+                forename: Some("Charles".to_owned()),
+                surname: Some("Dickens".to_owned()),
                 title: Some("Oliver Twist".to_owned()),
                 ..Default::default()
             };
@@ -215,8 +215,8 @@ mod tests {
         #[test]
         fn sanborn_config_overrides_apply() {
             let options = SanbornOptions {
-                given_name: Some("Charles".to_owned()),
-                family_name: Some("Dickens".to_owned()),
+                forename: Some("Charles".to_owned()),
+                surname: Some("Dickens".to_owned()),
                 title: Some("Oliver Twist".to_owned()),
                 prefix_len: Some(2),
                 suffix_len: Some(3),
@@ -227,7 +227,7 @@ mod tests {
         #[test]
         fn loc_impl_matches_known_values() {
             let options = LocOptions {
-                family_name: Some("Carter".to_owned()),
+                surname: Some("Carter".to_owned()),
                 ..Default::default()
             };
             let cutter = loc_impl(&options).unwrap();
@@ -235,7 +235,7 @@ mod tests {
             assert_eq!(csan::detailed_json(&cutter).unwrap()["alpha_prefix"], "C");
 
             let clamped = LocOptions {
-                family_name: Some("Macdonald".to_owned()),
+                surname: Some("Macdonald".to_owned()),
                 max_len: Some(64),
                 ..Default::default()
             };
@@ -245,7 +245,7 @@ mod tests {
         #[test]
         fn blank_inputs_error_with_js_field_names() {
             let options = SanbornOptions {
-                family_name: Some("   ".to_owned()),
+                surname: Some("   ".to_owned()),
                 ..Default::default()
             };
             let err = sanborn_impl(&options).unwrap_err();
@@ -253,7 +253,7 @@ mod tests {
 
             // The LoC path shares the same guard; check it independently.
             let loc_options = LocOptions {
-                given_name: Some("  ".to_owned()),
+                forename: Some("  ".to_owned()),
                 ..Default::default()
             };
             let loc_err = loc_impl(&loc_options).unwrap_err();
@@ -266,7 +266,7 @@ mod tests {
         #[test]
         fn loc_parts_expose_every_field() {
             let cutter = loc_impl(&LocOptions {
-                family_name: Some("Carter".to_owned()),
+                surname: Some("Carter".to_owned()),
                 ..Default::default()
             })
             .unwrap();
@@ -302,9 +302,9 @@ mod tests {
         #[serde(rename_all = "camelCase")]
         struct Options {
             #[serde(skip_serializing_if = "Option::is_none")]
-            given_name: Option<&'static str>,
+            forename: Option<&'static str>,
             #[serde(skip_serializing_if = "Option::is_none")]
-            family_name: Option<&'static str>,
+            surname: Option<&'static str>,
             #[serde(skip_serializing_if = "Option::is_none")]
             title: Option<&'static str>,
             #[serde(skip_serializing_if = "Option::is_none")]
@@ -335,8 +335,8 @@ mod tests {
         #[wasm_bindgen_test]
         fn cutter_sanborn_returns_the_call_number() {
             let arg = opts(&Options {
-                given_name: Some("Charles"),
-                family_name: Some("Dickens"),
+                forename: Some("Charles"),
+                surname: Some("Dickens"),
                 title: Some("Oliver Twist"),
                 ..Default::default()
             });
@@ -346,7 +346,7 @@ mod tests {
         #[wasm_bindgen_test]
         fn cutter_sanborn_honors_overrides() {
             let arg = opts(&Options {
-                family_name: Some("Dickens"),
+                surname: Some("Dickens"),
                 title: Some("Oliver Twist"),
                 prefix_len: Some(2),
                 suffix_len: Some(3),
@@ -358,7 +358,7 @@ mod tests {
         #[wasm_bindgen_test]
         fn cutter_sanborn_detailed_returns_the_parts() {
             let arg = opts(&Options {
-                family_name: Some("Borges"),
+                surname: Some("Borges"),
                 ..Default::default()
             });
             let value = cutter_sanborn_detailed(&arg).unwrap();
@@ -379,13 +379,13 @@ mod tests {
         #[wasm_bindgen_test]
         fn cutter_loc_returns_the_call_number() {
             let arg = opts(&Options {
-                family_name: Some("Carter"),
+                surname: Some("Carter"),
                 ..Default::default()
             });
             assert_eq!(cutter_loc(&arg).unwrap(), "C378");
 
             let clamped = opts(&Options {
-                family_name: Some("Macdonald"),
+                surname: Some("Macdonald"),
                 max_len: Some(64),
                 ..Default::default()
             });
@@ -413,7 +413,7 @@ mod tests {
         #[wasm_bindgen_test]
         fn blank_input_throws() {
             let arg = opts(&Options {
-                family_name: Some("   "),
+                surname: Some("   "),
                 ..Default::default()
             });
             assert!(cutter_sanborn(&arg).is_err());

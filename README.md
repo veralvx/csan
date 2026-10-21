@@ -91,13 +91,13 @@ crates/csan-cli`, or via the Python package below):
 
 ```sh
 $ csan --cutter-sanborn --cutter-loc \
-    --given-name Charles --family-name Dickens --title "Oliver Twist"
+    --forename Charles --surname Dickens --title "Oliver Twist"
 D548o
 D535
 ```
 
 Select at least one method (`--cutter-sanborn`, `--cutter-loc`) and provide
-at least one non-blank input (`--given-name`, `--family-name`, `--title`).
+at least one non-blank input (`--forename`, `--surname`, `--title`).
 `--prefix-len`/`--suffix-len` tune the Cutter-Sanborn output, `--max-len`
 the LoC digits, and `--json` emits the parts as a JSON object. Errors exit
 non-zero with a message on stderr.
@@ -115,8 +115,8 @@ uv tool install csan    # just the CLI, isolated
 
 ```python
 import csan
-csan.cutter_sanborn(family_name="Dickens", title="Oliver Twist")  # 'D548o'
-csan.cutter_loc_detailed(family_name="Carter")
+csan.cutter_sanborn(surname="Dickens", title="Oliver Twist")  # 'D548o'
+csan.cutter_loc_detailed(surname="Carter")
 # {'alpha_prefix': 'C', 'numeric': 378, 'formatted': 'C378'}
 ```
 
@@ -146,15 +146,15 @@ functions:
 #import "@preview/csan:0.1.0": cutter-sanborn, cutter-loc
 
 #cutter-sanborn(
-  given-name: "Charles",
-  family-name: "Dickens",
+  forename: "Charles",
+  surname: "Dickens",
   title: "Oliver Twist",
 ) // -> "D548o"
 
-#cutter-loc(family-name: "Carter") // -> "C378"
+#cutter-loc(surname: "Carter") // -> "C378"
 ```
 
-Both accept `given-name`, `family-name`, and `title` (at least one of
+Both accept `forename`, `surname`, and `title` (at least one of
 author/title must be non-blank; blank strings count as absent).
 `cutter-sanborn` also takes `prefix-len` and `suffix-len`; `cutter-loc`
 takes `max-len`. Pass `detailed: true` to receive a dictionary of the parts

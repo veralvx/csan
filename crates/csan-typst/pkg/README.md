@@ -8,15 +8,15 @@ WASM plugin.
 #import "@preview/csan:0.1.0": cutter-sanborn, cutter-loc
 
 #cutter-sanborn(
-  given-name: "Charles",
-  family-name: "Dickens",
+  forename: "Charles",
+  surname: "Dickens",
   title: "Oliver Twist",
 ) // -> "D548o"
 
-#cutter-loc(family-name: "Carter") // -> "C378"
+#cutter-loc(surname: "Carter") // -> "C378"
 ```
 
-Both functions accept `given-name`, `family-name`, and `title` (at least
+Both functions accept `forename`, `surname`, and `title` (at least
 one of author/title must be non-blank; blank strings count as absent).
 `cutter-sanborn` also takes `prefix-len` and `suffix-len`; `cutter-loc`
 takes `max-len` (clamped to 4). Pass `detailed: true` to receive a

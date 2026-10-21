@@ -7,10 +7,10 @@
 #let _plugin = plugin("csan_typst.wasm")
 
 // Builds the CBOR payload for the plugin, dropping `none` entries.
-#let _payload(given-name, family-name, title, ..extra) = {
+#let _payload(forename, surname, title, ..extra) = {
   let author = (:)
-  if given-name != none { author.insert("given_name", str(given-name)) }
-  if family-name != none { author.insert("family_name", str(family-name)) }
+  if forename != none { author.insert("forename", str(forename)) }
+  if surname != none { author.insert("surname", str(surname)) }
 
   let args = (:)
   if author.len() > 0 { args.insert("author", author) }
@@ -24,8 +24,8 @@
 
 /// Cutter-Sanborn three-figure call number.
 ///
-/// - given-name (str, none): The author's given (first) name.
-/// - family-name (str, none): The author's family (last) name.
+/// - forename (str, none): The author's given (first) name.
+/// - surname (str, none): The author's family (last) name.
 /// - title (str, none): The work's title. Required when no author is
 ///   given; with an author it contributes the lowercase work mark.
 /// - prefix-len (int, none): Letters taken from the name for the call
@@ -37,16 +37,16 @@
 ///   instead of the formatted string.
 /// -> str | dictionary
 #let cutter-sanborn(
-  given-name: none,
-  family-name: none,
+  forename: none,
+  surname: none,
   title: none,
   prefix-len: none,
   suffix-len: none,
   detailed: false,
 ) = {
   let payload = _payload(
-    given-name,
-    family-name,
+    forename,
+    surname,
     title,
     prefix_len: prefix-len,
     suffix_len: suffix-len,
@@ -60,8 +60,8 @@
 
 /// Library of Congress cutter number.
 ///
-/// - given-name (str, none): The author's given (first) name.
-/// - family-name (str, none): The author's family (last) name.
+/// - forename (str, none): The author's given (first) name.
+/// - surname (str, none): The author's family (last) name.
 /// - title (str, none): The work's title; used when no author is given.
 /// - max-len (int, none): Requested number of digits, clamped to 4 by the
 ///   plugin (plugin default: 3).
@@ -70,15 +70,15 @@
 ///   string.
 /// -> str | dictionary
 #let cutter-loc(
-  given-name: none,
-  family-name: none,
+  forename: none,
+  surname: none,
   title: none,
   max-len: none,
   detailed: false,
 ) = {
   let payload = _payload(
-    given-name,
-    family-name,
+    forename,
+    surname,
     title,
     max_len: max-len,
   )

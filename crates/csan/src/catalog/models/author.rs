@@ -17,10 +17,10 @@ use crate::catalog::normalization::{
 pub struct Author {
     /// The author's given (first) name, e.g. `"William"`.
     #[serde(default)]
-    given_name: Option<String>,
+    forename: Option<String>,
     /// The author's family (last) name, e.g. `"Shakespeare"`.
     #[serde(default)]
-    family_name: Option<String>,
+    surname: Option<String>,
 }
 
 impl Author {
@@ -32,43 +32,43 @@ impl Author {
     /// let author = Author::new("William", "Shakespeare");
     /// ```
     #[must_use]
-    pub fn new(given_name: impl Into<String>, family_name: impl Into<String>) -> Self {
+    pub fn new(forename: impl Into<String>, surname: impl Into<String>) -> Self {
         Self {
-            given_name: Some(given_name.into()),
-            family_name: Some(family_name.into()),
+            forename: Some(forename.into()),
+            surname: Some(surname.into()),
         }
     }
 
     /// Creates an `Author` with only a family name.
     #[must_use]
-    pub fn family_only(family_name: impl Into<String>) -> Self {
+    pub fn family_only(surname: impl Into<String>) -> Self {
         Self {
-            given_name: None,
-            family_name: Some(family_name.into()),
+            forename: None,
+            surname: Some(surname.into()),
         }
     }
 
     /// Creates an `Author` with only a given name.
     #[must_use]
-    pub fn given_only(given_name: impl Into<String>) -> Self {
+    pub fn given_only(forename: impl Into<String>) -> Self {
         Self {
-            given_name: Some(given_name.into()),
-            family_name: None,
+            forename: Some(forename.into()),
+            surname: None,
         }
     }
 
     /// Returns the author's raw (unnormalized) given name, if present.
     #[inline]
     #[must_use]
-    pub fn given_name(&self) -> Option<&str> {
-        self.given_name.as_deref()
+    pub fn forename(&self) -> Option<&str> {
+        self.forename.as_deref()
     }
 
     /// Returns the author's raw (unnormalized) family name, if present.
     #[inline]
     #[must_use]
-    pub fn family_name(&self) -> Option<&str> {
-        self.family_name.as_deref()
+    pub fn surname(&self) -> Option<&str> {
+        self.surname.as_deref()
     }
 
     /// Retrieves the given name and applies normalization.
@@ -78,8 +78,8 @@ impl Author {
     /// # Errors
     /// Returns a [`NormalizationError`] if a present name fails
     /// [`Author::normalize_name`].
-    pub fn given_name_normalized(&self) -> Result<Option<Cow<'_, str>>, NormalizationError> {
-        self.given_name().map(Author::normalize_name).transpose()
+    pub fn forename_normalized(&self) -> Result<Option<Cow<'_, str>>, NormalizationError> {
+        self.forename().map(Author::normalize_name).transpose()
     }
 
     /// Retrieves the family name and applies normalization.
@@ -89,8 +89,8 @@ impl Author {
     /// # Errors
     /// Returns a [`NormalizationError`] if a present name fails
     /// [`Author::normalize_name`].
-    pub fn family_name_normalized(&self) -> Result<Option<Cow<'_, str>>, NormalizationError> {
-        self.family_name().map(Author::normalize_name).transpose()
+    pub fn surname_normalized(&self) -> Result<Option<Cow<'_, str>>, NormalizationError> {
+        self.surname().map(Author::normalize_name).transpose()
     }
 
     /// Applies the full normalization pipeline to a raw name.
@@ -164,22 +164,22 @@ mod tests {
         #[test]
         fn new_with_full_name() {
             let author = Author::new("John", "Doe");
-            assert_eq!(author.given_name(), Some("John"));
-            assert_eq!(author.family_name(), Some("Doe"));
+            assert_eq!(author.forename(), Some("John"));
+            assert_eq!(author.surname(), Some("Doe"));
         }
 
         #[test]
-        fn new_with_no_given_name() {
+        fn new_with_no_forename() {
             let author = Author::family_only("Plato");
-            assert_eq!(author.given_name(), None);
-            assert_eq!(author.family_name(), Some("Plato"));
+            assert_eq!(author.forename(), None);
+            assert_eq!(author.surname(), Some("Plato"));
         }
 
         #[test]
-        fn new_with_no_family_name() {
+        fn new_with_no_surname() {
             let author = Author::given_only("Prince");
-            assert_eq!(author.given_name(), Some("Prince"));
-            assert_eq!(author.family_name(), None);
+            assert_eq!(author.forename(), Some("Prince"));
+            assert_eq!(author.surname(), None);
         }
 
         #[test]
@@ -188,15 +188,15 @@ mod tests {
             let f = String::from("John");
             let l = String::from("Doe");
             let author = Author::new(f, l);
-            assert_eq!(author.given_name(), Some("John"));
-            assert_eq!(author.family_name(), Some("Doe"));
+            assert_eq!(author.forename(), Some("John"));
+            assert_eq!(author.surname(), Some("Doe"));
         }
 
         #[test]
         fn deserialized_empty_author_is_representable() {
             let author: Author = serde_json::from_str("{}").unwrap();
-            assert_eq!(author.given_name(), None);
-            assert_eq!(author.family_name(), None);
+            assert_eq!(author.forename(), None);
+            assert_eq!(author.surname(), None);
         }
     }
 
@@ -204,38 +204,38 @@ mod tests {
         use super::*;
 
         #[test]
-        fn given_name_normalized() {
+        fn forename_normalized() {
             let author = Author::new("  john  ", "Doe");
-            let result = author.given_name_normalized().unwrap();
+            let result = author.forename_normalized().unwrap();
             assert_eq!(result, Some(Cow::Borrowed("John")));
         }
 
         #[test]
-        fn given_name_none() {
+        fn forename_none() {
             let author = Author::family_only("Doe");
-            let result = author.given_name_normalized().unwrap();
+            let result = author.forename_normalized().unwrap();
             assert_eq!(result, None);
         }
 
         #[test]
-        fn family_name_normalized_standard() {
+        fn surname_normalized_standard() {
             let author = Author::new("John", "  doe  ");
-            let result = author.family_name_normalized().unwrap();
+            let result = author.surname_normalized().unwrap();
             assert_eq!(result.as_deref(), Some("Doe"));
             assert!(matches!(result, Some(Cow::Owned(_))));
         }
 
         #[test]
-        fn family_name_none_returns_none() {
+        fn surname_none_returns_none() {
             let author = Author::given_only("Prince");
-            let result = author.family_name_normalized().unwrap();
+            let result = author.surname_normalized().unwrap();
             assert_eq!(result, None);
         }
 
         #[test]
         fn mac_expansion_survives_untrimmed_input() {
             let author = Author::new("Ronald", "  mcdonald  ");
-            let result = author.family_name_normalized().unwrap();
+            let result = author.surname_normalized().unwrap();
             assert_eq!(result.as_deref(), Some("Macdonald"));
         }
     }
