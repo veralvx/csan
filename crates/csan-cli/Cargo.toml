@@ -24,7 +24,7 @@ doc = false
 
 [dependencies]
 clap = { workspace = true }
-csan = { path = "../csan", version = "0.5.8" }
+csan = { path = "../csan", version = "0.5.9" }
 serde_json = { workspace = true }
 
 [package.metadata.dist]
