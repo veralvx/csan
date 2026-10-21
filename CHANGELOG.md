@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add exports to __init__.py
+- Add exports to **init**.py
 - Add license information to README
 
 ### Changed
@@ -78,7 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add contribution instructions
-- Add aliases for  justfile recipes
+- Add aliases for justfile recipes
 - Add edge cases
 
 ### Changed
