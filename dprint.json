@@ -13,7 +13,8 @@
     "**/node_modules",
     "**/*-lock.json",
     "cliff.toml",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "dist-workspace.toml"
   ],
   "plugins": [
     "https://plugins.dprint.dev/typescript-0.95.13.wasm",
