@@ -20,3 +20,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+
+
+
+[package.metadata.dist]
+dist = false
