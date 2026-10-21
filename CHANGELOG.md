@@ -5,11 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-10-21
+
+### Changed
+
+- Compliant dependabot
+- Format with dprint
+- Format with dprint
+- Bump actions/setup-python from 5 to 7
+- Merge pull request #6 from veralvx/dependabot/github_actions/actions/setup-python-7
+- Bump dprint/check
+- Merge pull request #5 from veralvx/dependabot/github_actions/actions-dependencies-456eeecc7b
+- Merge branch 'main' of https://github.com/veralvx/csan
+- Toml versions
+
+### Fixed
+
+- Extra space in catergory
+- Rectify category slugs
+
 ## [0.5.0] - 2026-10-21
 
 ### Changed
 
 - Rewrite in rust
+- V0.5.0
 
 ## [0.4.2] - 2025-12-08
 
@@ -28,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add exports to **init**.py
+- Add exports to __init__.py
 - Add license information to README
 
 ### Changed
@@ -78,7 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add contribution instructions
-- Add aliases for justfile recipes
+- Add aliases for  justfile recipes
 - Add edge cases
 
 ### Changed
@@ -163,6 +183,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial tests
 - Passing checks for release
 
+[0.5.1]: https://github.com/veralvx/csan/compare/v0.5.0..v0.5.1
 [0.5.0]: https://github.com/veralvx/csan/compare/v0.4.2..v0.5.0
 [0.4.2]: https://github.com/veralvx/csan/compare/v0.4.1..v0.4.2
 [0.4.1]: https://github.com/veralvx/csan/compare/v0.4.0..v0.4.1
