@@ -154,11 +154,11 @@ codegen-units = 1
 strip = true
 debug = false
 debug-assertions = false
-panic = 'abort'
+panic = "abort"
 
 [profile.wasm]
 inherits = "release"
-opt-level = 'z'
+opt-level = "z"
 
 [profile.dist]
 inherits = "release"
