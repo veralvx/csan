@@ -1,0 +1,2 @@
+# The npm command's shebang breaks with CRLF line endings.
+crates/csan-web/bin/** text eol=lf

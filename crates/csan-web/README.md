@@ -43,9 +43,18 @@ npx @veralvx/csan --method cutter-loc --surname Carter                         #
 npx @veralvx/csan --help
 ```
 
-`runCli(args)` exposes the same interface to code: it takes the arguments
-(without the program name) and returns `{ code, stdout, stderr }` instead
-of printing.
+Output is styled exactly when the native binary would style it (on a
+color-capable terminal, honoring `NO_COLOR`, `CLICOLOR`, and
+`CLICOLOR_FORCE`), and write failures follow the same rules: a closed pipe
+is not an error, and any other failure exits 1.
+
+`runCli(args, styling?)` exposes the same interface to code: it takes the
+arguments (without the program name) and returns `{ code, stdout, stderr }`
+instead of printing; `styling` (`{ stdout?, stderr? }`) asks for ANSI
+styles on either stream.
+
+The command makes the WebAssembly module larger: the package is about
+210 KB gzipped, up from about 130 KB without it.
 
 ## Installing
 
@@ -67,20 +76,21 @@ which compiles the crate, runs `wasm-bindgen`, and generates a
 conventional npm package (`package.json` with `name`, `types`, `files`,
 `sideEffects`, and the license/repository metadata from `Cargo.toml`):
 
+Build the published package (the Node build) with the `just` recipes from
+the repository root; besides `wasm-pack`, they optimize for size, add the
+`csan` command, and set the npm name:
+
 ```sh
 rustup target add wasm32-unknown-unknown
 cargo install wasm-pack        # or: npm i -g wasm-pack
 
-# Bundler-oriented package (webpack, Vite, Rollup, …) in ./pkg
-wasm-pack build --release --target bundler
+just npm-build-node   # the npm package, in ./pkg-node
+just npm-test         # ... then run the demo and smoke tests against it
+just npm-pack         # ... then pack the release tarball
 
-# Node-oriented package in ./pkg-node (`just npm-test` from the
-# repository root also runs the demo and smoke tests, and
-# `just npm-pack` packs the release tarball)
-wasm-pack build --release --target nodejs --out-dir pkg-node
-
-# Plain-browser ES module package in ./pkg-web
-wasm-pack build --release --target web --out-dir pkg-web
+# Other wasm-pack targets (library only, without the `csan` command):
+just npm-build                                        # bundlers, in ./pkg
+wasm-pack build --release --target web --out-dir pkg-web   # browsers
 ```
 
 If you run `wasm-bindgen` by hand instead, its CLI version must exactly
@@ -89,10 +99,11 @@ match the `wasm-bindgen` dependency version in `Cargo.lock`.
 ## Running the examples
 
 ```sh
-wasm-pack build --release --target nodejs --out-dir pkg-node
-node examples/node-demo.cjs
-node examples/smoke-test.cjs
+# From the repository root: build the package, then run
+# examples/node-demo.cjs and examples/smoke-test.cjs against it.
+just npm-test
 
+# The browser demo, from this directory:
 wasm-pack build --release --target web --out-dir pkg-web
 python3 -m http.server   # then open http://localhost:8000/examples/web/
 ```

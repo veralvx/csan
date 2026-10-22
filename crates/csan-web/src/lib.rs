@@ -91,6 +91,13 @@ export interface CutterLocDetailed {
   formatted: string;
 }
 
+/** Which output streams `runCli` styles with ANSI escapes (default: none),
+ *  as the native binary does for a color-capable terminal. */
+export interface CliStyling {
+  stdout?: boolean | null;
+  stderr?: boolean | null;
+}
+
 /** What a `runCli` invocation printed, and its exit code. */
 export interface CliResult {
   /** 0 on success (and for --help/--version), 1 on a runtime failure,
@@ -314,11 +321,27 @@ struct CliResult {
     stderr: String,
 }
 
+/// Options accepted by [`run_cli`]: the JS shape of [`csan::Styling`].
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CliStyling {
+    /// Style text destined for standard output.
+    pub stdout: Option<bool>,
+    /// Style text destined for standard error.
+    pub stderr: Option<bool>,
+}
+
 /// Host-testable core of [`run_cli`]: runs the `csan` command-line
 /// interface on `args` (excluding the program name).
 #[must_use]
-pub fn run_cli_impl(args: Vec<String>) -> csan::Outcome {
-    csan::execute(iter::once(String::from("csan")).chain(args))
+pub fn run_cli_impl(args: Vec<String>, styling: &CliStyling) -> csan::Outcome {
+    csan::execute(
+        iter::once(String::from("csan")).chain(args),
+        csan::Styling {
+            stdout: styling.stdout.unwrap_or(false),
+            stderr: styling.stderr.unwrap_or(false),
+        },
+    )
 }
 
 /// Runs the `csan` command-line interface on `args` (excluding the program
@@ -327,12 +350,19 @@ pub fn run_cli_impl(args: Vec<String>) -> csan::Outcome {
 ///
 /// This is the same interface as the native `csan` binary (options, help,
 /// messages, and exit codes) and backs the package's `csan` command.
+/// `styling` selects which streams get clap's ANSI styles (none by
+/// default).
 ///
 /// # Errors
-/// Throws only if the result cannot be converted to a JS object.
+/// Throws when `styling` is malformed, or if the result cannot be
+/// converted to a JS object.
 #[wasm_bindgen(js_name = "runCli", unchecked_return_type = "CliResult")]
-pub fn run_cli(args: Vec<String>) -> Result<JsValue, JsError> {
-    let outcome = run_cli_impl(args);
+pub fn run_cli(
+    args: Vec<String>,
+    #[wasm_bindgen(unchecked_param_type = "CliStyling | null | undefined")] styling: &JsValue,
+) -> Result<JsValue, JsError> {
+    let parsed: CliStyling = parse_options(styling)?;
+    let outcome = run_cli_impl(args, &parsed);
     to_js(&CliResult {
         code: outcome.code,
         stdout: outcome.stdout,
@@ -463,19 +493,33 @@ mod tests {
 
         #[test]
         fn run_cli_impl_runs_the_cli_without_the_program_name() {
-            let outcome = run_cli_impl(vec![
-                "--method".to_owned(),
-                "cutter-loc".to_owned(),
-                "--surname".to_owned(),
-                "Carter".to_owned(),
-            ]);
+            let default_styling = CliStyling::default();
+            let outcome = run_cli_impl(
+                vec![
+                    "--method".to_owned(),
+                    "cutter-loc".to_owned(),
+                    "--surname".to_owned(),
+                    "Carter".to_owned(),
+                ],
+                &default_styling,
+            );
             assert_eq!(outcome.code, 0);
             assert_eq!(outcome.stdout, "C378\n");
             assert!(outcome.stderr.is_empty());
 
-            let usage = run_cli_impl(vec!["--cutter-loc".to_owned()]);
+            let usage = run_cli_impl(vec!["--cutter-loc".to_owned()], &default_styling);
             assert_eq!(usage.code, 2);
             assert!(usage.stderr.contains("--cutter-loc"));
+            assert!(!usage.stderr.contains('\u{1b}'), "unstyled by default");
+
+            let styled = run_cli_impl(
+                vec!["--cutter-loc".to_owned()],
+                &CliStyling {
+                    stderr: Some(true),
+                    ..CliStyling::default()
+                },
+            );
+            assert!(styled.stderr.contains('\u{1b}'), "styled on request");
         }
 
         #[test]
@@ -626,18 +670,31 @@ mod tests {
 
         #[wasm_bindgen_test]
         fn run_cli_returns_code_and_output() {
-            let result = run_cli(vec!["--surname".to_owned(), "Dickens".to_owned()]).unwrap();
+            let result = run_cli(
+                vec!["--surname".to_owned(), "Dickens".to_owned()],
+                &JsValue::UNDEFINED,
+            )
+            .unwrap();
             assert_eq!(field_f64(&result, "code"), Some(0.0));
             assert_eq!(field_str(&result, "stdout").as_deref(), Some("D548\n"));
             assert_eq!(field_str(&result, "stderr").as_deref(), Some(""));
 
-            let usage = run_cli(vec!["--method".to_owned(), "dewey".to_owned()]).unwrap();
+            let usage = run_cli(
+                vec!["--method".to_owned(), "dewey".to_owned()],
+                &JsValue::UNDEFINED,
+            )
+            .unwrap();
             assert_eq!(field_f64(&usage, "code"), Some(2.0));
             assert!(
                 field_str(&usage, "stderr")
                     .unwrap()
                     .contains("possible values")
             );
+
+            // An unknown styling key throws, like the other options.
+            let bad = js_sys::Object::new();
+            js_sys::Reflect::set(&bad, &"colour".into(), &true.into()).unwrap();
+            assert!(run_cli(vec![], &bad).is_err());
         }
 
         #[wasm_bindgen_test]
