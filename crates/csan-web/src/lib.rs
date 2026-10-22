@@ -12,7 +12,7 @@
 //! camelCase keys:
 //!
 //! ```js
-//! import { cutterSanborn, cutterLoc } from "csan-web";
+//! import { cutterSanborn, cutterLoc } from "@veralvx/csan";
 //!
 //! cutterSanborn({ forename: "Charles", surname: "Dickens",
 //!                 title: "Oliver Twist" });     // "D548o"

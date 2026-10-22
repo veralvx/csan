@@ -5,7 +5,7 @@ built from the [`csan-core`](https://github.com/veralvx/csan) Rust crate
 with `wasm-bindgen`.
 
 ```js
-import { cutterLoc, cutterSanborn, cutterSanbornDetailed } from "csan-web";
+import { cutterLoc, cutterSanborn, cutterSanbornDetailed } from "@veralvx/csan";
 
 cutterSanborn({
   forename: "Charles",
@@ -33,12 +33,16 @@ the other `csan` frontends.
 
 ## Installing
 
-Each [GitHub release](https://github.com/veralvx/csan/releases) carries the
-Node package as `csan-web-<version>.tgz`:
+The package is published to npm as
+[`@veralvx/csan`](https://www.npmjs.com/package/@veralvx/csan), built for
+Node (CommonJS, with TypeScript declarations):
 
 ```sh
-npm install ./csan-web-<version>.tgz
+npm install @veralvx/csan
 ```
+
+Each [GitHub release](https://github.com/veralvx/csan/releases) also
+carries the same tarball, `veralvx-csan-<version>.tgz`.
 
 ## Building the npm package
 
@@ -79,18 +83,12 @@ python3 -m http.server   # then open http://localhost:8000/examples/web/
 
 ## Publishing to npm
 
-```sh
-wasm-pack build --release --target bundler
-wasm-pack publish            # or: npm publish pkg/
-```
-
-`wasm-pack publish` runs `npm publish` on the generated `pkg/` directory.
-The package name defaults to the crate name (`csan-web`); to publish
-under a different or scoped name (e.g. `@your-scope/csan`), edit
-`pkg/package.json` before publishing, or pass `--scope your-scope` to
-`wasm-pack build`. Follow npm's usual flow for versioning (`version` comes
-from `Cargo.toml`) and use `npm publish --dry-run pkg/` to inspect the
-tarball first.
+Releases publish automatically: the release workflow builds and
+smoke-tests the Node package with `just npm-pack` (which names it
+`@veralvx/csan`; wasm-pack would default to the crate name), and
+`.github/workflows/publish-npm.yml` publishes that tarball once the release
+succeeds. The `version` comes from `Cargo.toml`. To inspect the package
+locally, run `just npm-pack` and `npm publish --dry-run` on the tarball.
 
 ## License
 
