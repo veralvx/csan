@@ -183,10 +183,7 @@ mod tests {
             ));
         }
         if let Some(f) = family {
-            entries.push((
-                Value::Text("surname".to_owned()),
-                Value::Text(f.to_owned()),
-            ));
+            entries.push((Value::Text("surname".to_owned()), Value::Text(f.to_owned())));
         }
         Value::Map(entries)
     }

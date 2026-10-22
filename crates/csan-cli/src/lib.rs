@@ -86,9 +86,7 @@ pub fn run(cli: &Cli) -> Result<String, String> {
         cli.title.as_deref(),
     )
     .ok_or_else(|| {
-        String::from(
-            "provide at least one non-blank input: --forename, --surname, or --title",
-        )
+        String::from("provide at least one non-blank input: --forename, --surname, or --title")
     })?;
 
     let config = CutterConfig {

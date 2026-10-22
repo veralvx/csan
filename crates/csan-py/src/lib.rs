@@ -31,9 +31,7 @@ fn attribution(
     title: Option<&str>,
 ) -> PyResult<Attribution> {
     Attribution::from_parts(forename, surname, title).ok_or_else(|| {
-        PyValueError::new_err(
-            "provide at least one non-blank input: forename, surname, or title",
-        )
+        PyValueError::new_err("provide at least one non-blank input: forename, surname, or title")
     })
 }
 
