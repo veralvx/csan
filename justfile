@@ -226,6 +226,21 @@ release semver:
     exit 1
   fi
 
+  # Breaking changes (`type!:` or a BREAKING CHANGE footer) need a bump
+  # Cargo treats as incompatible: minor while on 0.x, major from 1.0 on.
+  breaking="$(jq -r '[.commits[] | select(.breaking)] | length' <<<"$release_json")"
+  if [ "$breaking" -gt 0 ]; then
+    case "{{ semver }}" in
+      patch) too_small=1 ;;
+      minor) [ "${raw_version%%.*}" = 0 ] && too_small=0 || too_small=1 ;;
+      *) too_small=0 ;;
+    esac
+    if [ "$too_small" -eq 1 ]; then
+      echo "Error: $breaking unreleased commit(s) are breaking changes; a {{ semver }} bump ($tag) would hide that from semver. Use a larger bump." >&2
+      exit 1
+    fi
+  fi
+
   # If anything below fails before the commit, restore the modified files.
   # Uses HEAD (not index) so cleanup works even after git-add.
   release_files=(Cargo.toml Cargo.lock CHANGELOG.md crates/csan-typst/pkg/typst.toml)
