@@ -10,7 +10,8 @@
 #      trusted publisher: owner `veralvx`, repository `csan`, workflow
 #      `publish-pypi.yml`, environment `pypi`.
 #   2. GitHub → Settings → Environments → create `pypi` (optionally with
-#      required reviewers or a tag-only deployment rule).
+#      required reviewers). A deployment branch rule must allow `main`:
+#      workflow_run jobs run on the default branch, not on the tag.
 #
 # To (re)publish a release by hand, run it from the Actions tab with the
 # release tag; files already on PyPI are skipped.
@@ -59,14 +60,21 @@ jobs:
           # For a tag push, the triggering run's head_branch is the tag name.
           TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
         run: |
+          # The Release workflow also accepts prerelease tags (vX.Y.Z-rc.1),
+          # whose PEP 440 file names differ; those are not published here.
           if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::'$TAG' is not a release tag (vX.Y.Z)"
-            exit 1
+            echo "::notice::'$TAG' is not a vX.Y.Z release tag; nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          {
+            echo "publish=true"
+            echo "tag=$TAG"
+            echo "version=${TAG#v}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Download the wheels and sdist from the GitHub Release
+        if: steps.release.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.release.outputs.tag }}
@@ -79,6 +87,7 @@ jobs:
           compgen -G "dist/csan-$VERSION-*.whl" > /dev/null || { echo "::error::no wheels in $TAG"; exit 1; }
 
       - name: Publish
+        if: steps.release.outputs.publish == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/

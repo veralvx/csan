@@ -16,15 +16,29 @@ on:
         description: The dist plan manifest (JSON)
         required: true
         type: string
+  # Standalone runs for changes to the packaging inputs. Push is limited to
+  # main (pull requests run it before merging) and to branches: path filters
+  # are not evaluated for tag pushes, so a release tag would otherwise also
+  # start a duplicate build.
   push:
-    # Branch pushes only: path filters are not evaluated for tag pushes, so
-    # without this every release tag would also run a duplicate build.
-    branches: ["**"]
+    branches: [main]
     paths:
       - ".github/workflows/release-extra-artifacts.yml"
+      - "justfile"
+      - "rust-toolchain.toml"
+      - "crates/csan-py/pyproject.toml"
+      - "crates/csan-py/Cargo.toml"
+      - "crates/csan-web/Cargo.toml"
+      - "crates/csan-typst/pkg/typst.toml"
   pull_request:
     paths:
       - ".github/workflows/release-extra-artifacts.yml"
+      - "justfile"
+      - "rust-toolchain.toml"
+      - "crates/csan-py/pyproject.toml"
+      - "crates/csan-py/Cargo.toml"
+      - "crates/csan-web/Cargo.toml"
+      - "crates/csan-typst/pkg/typst.toml"
 
 permissions:
   contents: read
@@ -127,7 +141,7 @@ jobs:
       - name: Install wasm-pack and just
         uses: taiki-e/install-action@v2
         with:
-          tool: wasm-pack,just
+          tool: wasm-pack@0.15.0,just
 
       - name: Build, smoke-test, and pack
         run: just npm-pack target/dist-extra
@@ -176,7 +190,8 @@ jobs:
       - name: Read the pinned toolchain
         id: toolchain
         shell: bash
-        run: echo "channel=$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+        # tr: a CRLF checkout (Windows) must not leave a trailing \r.
+        run: echo "channel=$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml | tr -d '\r')" >> "$GITHUB_OUTPUT"
 
       - name: Build the wheel
         uses: PyO3/maturin-action@v1
@@ -194,10 +209,17 @@ jobs:
           test "$(csan --cutter-sanborn --surname Dickens --title "Oliver Twist")" = "D548o"
           python -c 'import csan; assert csan.cutter_loc(surname="Carter") == "C378"'
 
+      - name: Checksums
+        shell: bash
+        working-directory: dist
+        run: |
+          if command -v sha256sum > /dev/null; then sum=(sha256sum); else sum=(shasum -a 256); fi
+          for f in *.whl; do "${sum[@]}" "$f" > "$f.sha256"; done
+
       - uses: actions/upload-artifact@v6
         with:
           name: artifacts-extra-wheels-${{ matrix.platform.os }}-${{ matrix.platform.target }}
-          path: dist/*.whl
+          path: dist/*.whl*
           if-no-files-found: error
 
   sdist:
@@ -215,8 +237,12 @@ jobs:
           command: sdist
           args: --out dist -m crates/csan-py/Cargo.toml
 
+      - name: Checksums
+        working-directory: dist
+        run: for f in *.tar.gz; do sha256sum "$f" > "$f.sha256"; done
+
       - uses: actions/upload-artifact@v6
         with:
           name: artifacts-extra-sdist
-          path: dist/*.tar.gz
+          path: dist/*.tar.gz*
           if-no-files-found: error

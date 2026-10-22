@@ -32,7 +32,8 @@ diacritics and ligatures are folded to ASCII (`Čapek` → `Capek`, `Strauß` �
 
 ## Rust usage
 
-Add the library with `cargo add csan-core`:
+Add the library with `cargo add csan-core`. (Up to 0.5.x the library was
+published as `csan`; that name now belongs to the command-line tool.)
 
 ```rust
 use csan_core::{
@@ -191,8 +192,9 @@ just typst-test  # compile the assert-based plugin test suite
 
 `just release <major|minor|patch>` (on an up-to-date, clean `main`) bumps
 the workspace version, the `csan-core` dependency pin, and the Typst
-package version, regenerates `CHANGELOG.md` with git-cliff, then commits,
-tags, and pushes. The tag starts the Release workflow, which uses
+package version, prepends the release's section to `CHANGELOG.md` with
+git-cliff, then commits, tags, and pushes. It refuses a bump smaller than
+the unreleased breaking changes require. The tag starts the Release workflow, which uses
 [dist](https://opensource.axo.dev/cargo-dist/) to build the `csan` binaries
 and installers and attaches, to the same GitHub release:
 

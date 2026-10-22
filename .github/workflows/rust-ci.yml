@@ -281,7 +281,7 @@ jobs:
       - name: Install wasm-pack and just
         uses: taiki-e/install-action@v2
         with:
-          tool: wasm-pack,just
+          tool: wasm-pack@0.15.0,just
 
       - name: Run the wasm-bindgen test suite
         run: just web-test

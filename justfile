@@ -294,7 +294,10 @@ release semver:
   # 10. Push branch and tag atomically (both or neither). The tag push
   #     triggers the Release workflow, and a successful release triggers
   #     the PyPI publish.
-  git push --atomic origin main "$tag"
+  if ! git push --atomic origin main "$tag"; then
+    echo "Error: push failed; the release commit and tag $tag exist locally. Retry with: git push --atomic origin main $tag" >&2
+    exit 1
+  fi
 
   echo "Released $tag"
 
