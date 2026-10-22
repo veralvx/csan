@@ -34,3 +34,22 @@ serde_json = { workspace = true }
 
 [package.metadata.dist]
 dist = true
+
+# `cargo binstall csan` downloads the release archive dist builds for the
+# host instead of compiling. The Unix archives are .tar.xz with the files in
+# a `csan-<target>/` directory; the Windows ones are .zip with them at the
+# root.
+[package.metadata.binstall]
+pkg-url = "https://github.com/veralvx/{ name }/releases/download/v{ version }/{ name }-{ target }.tar.xz"
+bin-dir = "{ name }-{ target }/{ bin }{ binary-ext }"
+pkg-fmt = "txz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-url = "https://github.com/veralvx/{ name }/releases/download/v{ version }/{ name }-{ target }.zip"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "zip"
+
+[package.metadata.binstall.overrides.aarch64-pc-windows-msvc]
+pkg-url = "https://github.com/veralvx/{ name }/releases/download/v{ version }/{ name }-{ target }.zip"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "zip"
