@@ -12,6 +12,11 @@ WEB_CRATE_DIR := "crates/csan-web"
 # The npm name of the Node package (wasm-pack defaults to the crate name).
 # publish-npm.yml publishes the release tarball `npm pack` names after it.
 NPM_PACKAGE := "@veralvx/csan"
+# The npm builds optimize for size: the module carries the whole clap CLI
+# (for the package's `csan` command), and opt-level "z" keeps it about 40%
+# smaller than the release profile's opt-level 3. Scoped to these builds
+# through cargo's --config; native builds keep the release profile.
+WASM_PACK_CARGO_ARGS := "--config 'profile.release.opt-level=\"z\"'"
 # Where the `*-pack` recipes put release artifacts.
 DIST_EXTRA_DIR := "target/dist-extra"
 
@@ -77,21 +82,24 @@ py-build:
 [doc("Build the npm package with wasm-pack (bundler target, into crates/csan-web/pkg)")]
 [group("Bindings")]
 npm-build:
-  wasm-pack build {{ WEB_CRATE_DIR }} --release --target bundler
+  wasm-pack build {{ WEB_CRATE_DIR }} --release --target bundler -- {{ WASM_PACK_CARGO_ARGS }}
 
 [doc("Build the Node npm package (requires wasm-pack)")]
 [group("Bindings")]
 npm-build-node:
-  wasm-pack build {{ WEB_CRATE_DIR }} --release --target nodejs --out-dir pkg-node
-  # Publish under the npm name. wasm-pack copies the license files into the
-  # package but leaves them out of package.json `files`, and npm only
-  # auto-includes `LICENSE[.ext]`.
+  wasm-pack build {{ WEB_CRATE_DIR }} --release --target nodejs --out-dir pkg-node -- {{ WASM_PACK_CARGO_ARGS }}
+  mkdir -p {{ WEB_CRATE_DIR }}/pkg-node/bin
+  cp {{ WEB_CRATE_DIR }}/bin/csan.cjs {{ WEB_CRATE_DIR }}/pkg-node/bin/csan.cjs
+  # Publish under the npm name with the `csan` command. wasm-pack copies the
+  # license files into the package but leaves them out of package.json
+  # `files`, and npm only auto-includes `LICENSE[.ext]`.
   node -e ' \
     const fs = require("node:fs"); \
     const path = "{{ WEB_CRATE_DIR }}/pkg-node/package.json"; \
     const pkg = JSON.parse(fs.readFileSync(path, "utf8")); \
     pkg.name = "{{ NPM_PACKAGE }}"; \
-    pkg.files = [...new Set([...pkg.files, "LICENSE-APACHE", "LICENSE-MIT"])]; \
+    pkg.bin = { csan: "bin/csan.cjs" }; \
+    pkg.files = [...new Set([...pkg.files, "bin/csan.cjs", "LICENSE-APACHE", "LICENSE-MIT"])]; \
     fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n");'
 
 [doc("Build the Node npm package and run its demo and smoke tests (requires wasm-pack and node)")]
@@ -99,6 +107,21 @@ npm-build-node:
 npm-test: npm-build-node
   node {{ WEB_CRATE_DIR }}/examples/node-demo.cjs
   node {{ WEB_CRATE_DIR }}/examples/smoke-test.cjs
+
+[doc("Type-check the Node npm package's TypeScript declarations (requires wasm-pack and npx; downloads the pinned TypeScript)")]
+[group("Bindings")]
+npm-types: npm-build-node
+  # A pinned compiler, outside npm-pack's chain: the release tarball never
+  # depends on code fetched for this check.
+  npx --yes --package typescript@5.9.3 -- tsc --noEmit --strict \
+    --module nodenext --moduleResolution nodenext --target es2022 \
+    {{ WEB_CRATE_DIR }}/examples/types-check.ts
+
+[doc("Check the npm package's csan command prints byte for byte what the native binary prints on a terminal, colors included (Linux; requires `script` from util-linux)")]
+[group("Bindings")]
+npm-tty-parity: npm-build-node
+  cargo build --locked -p csan
+  {{ WEB_CRATE_DIR }}/examples/tty-parity.sh target/debug/csan {{ WEB_CRATE_DIR }}/pkg-node/bin/csan.cjs
 
 [doc("Pack the tested Node npm package into a tarball for a release (requires wasm-pack, node, npm)")]
 [group("Bindings")]

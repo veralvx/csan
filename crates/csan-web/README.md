@@ -31,6 +31,34 @@ cutter's parts as a plain object whose keys (`alpha_prefix`, `numeric`,
 `alpha_suffix`, `entry`, `formatted`) match the shared representation used by
 the other `csan` frontends.
 
+## Command line
+
+The package provides the `csan` command, the same command-line interface as
+the native `csan` binary (options, help, messages, and exit codes), compiled
+into the package's WebAssembly module:
+
+```sh
+npx @veralvx/csan --forename Charles --surname Dickens --title "Oliver Twist"   # D548o
+npx @veralvx/csan --method cutter-loc --surname Carter                         # C378
+npx @veralvx/csan --help
+```
+
+Output is styled exactly when the native binary would style it (on a
+color-capable terminal, honoring `NO_COLOR`, `CLICOLOR`, and
+`CLICOLOR_FORCE`; Node does not detect Git Bash/mintty terminals, so output
+there is plain). Write failures follow the same rules: a closed pipe is not
+an error, and any other failure prints `error: failed to write output: ...`
+and exits 1 (the detail is the platform's error description, worded by Rust
+or Node respectively).
+
+`runCli(args, styling?)` exposes the same interface to code: it takes the
+arguments (without the program name) and returns `{ code, stdout, stderr }`
+instead of printing; `styling` (`{ stdout?, stderr? }`) asks for ANSI
+styles on either stream.
+
+The command makes the WebAssembly module larger: the package is about
+210 KB gzipped, up from about 130 KB without it.
+
 ## Installing
 
 The package is published to npm as
@@ -49,22 +77,31 @@ carries the same tarball, `veralvx-csan-<version>.tgz`.
 The package is produced with [`wasm-pack`](https://rustwasm.github.io/wasm-pack/),
 which compiles the crate, runs `wasm-bindgen`, and generates a
 conventional npm package (`package.json` with `name`, `types`, `files`,
-`sideEffects`, and the license/repository metadata from `Cargo.toml`):
+`sideEffects`, and the license/repository metadata from `Cargo.toml`).
+Build the published package (the Node build) with the `just` recipes, from
+the repository root; besides running `wasm-pack`, they optimize for size,
+add the `csan` command, and set the npm name:
 
 ```sh
 rustup target add wasm32-unknown-unknown
 cargo install wasm-pack        # or: npm i -g wasm-pack
 
-# Bundler-oriented package (webpack, Vite, Rollup, …) in ./pkg
-wasm-pack build --release --target bundler
+just npm-build-node   # the npm package, in crates/csan-web/pkg-node
+just npm-test         # ... then run the demo and smoke tests
+just npm-types        # ... type-check its TypeScript declarations
+just npm-tty-parity   # ... compare its command with the native binary
+just npm-pack         # ... then pack the release tarball
 
-# Node-oriented package in ./pkg-node (`just npm-test` from the
-# repository root also runs the demo and smoke tests, and
-# `just npm-pack` packs the release tarball)
-wasm-pack build --release --target nodejs --out-dir pkg-node
+# Other targets (no `csan` command, though `runCli` is still compiled in):
+just npm-build        # bundlers, in crates/csan-web/pkg
+```
 
-# Plain-browser ES module package in ./pkg-web
-wasm-pack build --release --target web --out-dir pkg-web
+For a plain-browser ES module, run in this directory (`opt-level` keeps
+the module as small as the npm build):
+
+```sh
+wasm-pack build --release --target web --out-dir pkg-web \
+  -- --config 'profile.release.opt-level="z"'
 ```
 
 If you run `wasm-bindgen` by hand instead, its CLI version must exactly
@@ -73,11 +110,11 @@ match the `wasm-bindgen` dependency version in `Cargo.lock`.
 ## Running the examples
 
 ```sh
-wasm-pack build --release --target nodejs --out-dir pkg-node
-node examples/node-demo.cjs
-node examples/smoke-test.cjs
+# From the repository root: build the package, then run
+# examples/node-demo.cjs and examples/smoke-test.cjs against it.
+just npm-test
 
-wasm-pack build --release --target web --out-dir pkg-web
+# The browser demo, from this directory (build pkg-web as above):
 python3 -m http.server   # then open http://localhost:8000/examples/web/
 ```
 

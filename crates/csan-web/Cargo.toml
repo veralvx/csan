@@ -19,6 +19,9 @@ crate-type = ["cdylib", "rlib"]
 workspace = true
 
 [dependencies]
+# The `csan` CLI's library half: `runCli` and the npm package's `csan`
+# command run the same clap interface as the native binary.
+csan = { path = "../csan" }
 csan-core = { workspace = true }
 serde = { workspace = true }
 serde-wasm-bindgen = { workspace = true }

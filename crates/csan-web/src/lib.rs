@@ -38,6 +38,7 @@ use serde::de::value::MapAccessDeserializer;
 use serde::de::{Deserializer, MapAccess, Visitor};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::iter;
 use std::marker::PhantomData;
 use wasm_bindgen::prelude::{JsError, JsValue, wasm_bindgen};
 
@@ -89,7 +90,44 @@ export interface CutterLocDetailed {
   numeric: number;
   formatted: string;
 }
+
+/** Which output streams `runCli` styles with ANSI escapes (default: none),
+ *  as the native binary does for a color-capable terminal. */
+export interface CliStyling {
+  stdout?: boolean | null;
+  stderr?: boolean | null;
+}
+
+/** What a `runCli` invocation printed, and its exit code. */
+export interface CliResult {
+  /** 0 on success (and for --help/--version), 1 on a runtime failure,
+   *  2 on a usage error. */
+  code: number;
+  /** Standard output, newline-terminated when non-empty. */
+  stdout: string;
+  /** Standard error, newline-terminated when non-empty. */
+  stderr: string;
+}
 "#;
+
+// The exports take their options as these imported types, so the `.d.ts`
+// declares each options parameter optional (`options?: SanbornOptions |
+// null`), as it is in JavaScript. They carry no runtime check: whatever
+// the caller passes reaches `parse_options`.
+#[wasm_bindgen]
+extern "C" {
+    /// A [`SanbornOptions`] object as passed from JavaScript.
+    #[wasm_bindgen(typescript_type = "SanbornOptions")]
+    pub type SanbornOptionsArg;
+
+    /// A [`LocOptions`] object as passed from JavaScript.
+    #[wasm_bindgen(typescript_type = "LocOptions")]
+    pub type LocOptionsArg;
+
+    /// A [`CliStyling`] object as passed from JavaScript.
+    #[wasm_bindgen(typescript_type = "CliStyling")]
+    pub type CliStylingArg;
+}
 
 /// Options accepted by [`cutter_sanborn`] and [`cutter_sanborn_detailed`].
 #[derive(Debug, Default, Deserialize)]
@@ -195,7 +233,12 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for AllKeys<T> {
 /// Deserializes a JS options object, treating `undefined`/`null` as `{}`.
 ///
 /// Only the object's own properties are read (inherited ones are not).
-fn parse_options<T: Default + for<'de> Deserialize<'de>>(options: &JsValue) -> Result<T, JsError> {
+fn parse_options<T: Default + for<'de> Deserialize<'de>>(
+    options: Option<impl Into<JsValue>>,
+) -> Result<T, JsError> {
+    let Some(options) = options.map(Into::into) else {
+        return Ok(T::default());
+    };
     if options.is_undefined() || options.is_null() {
         return Ok(T::default());
     }
@@ -204,7 +247,7 @@ fn parse_options<T: Default + for<'de> Deserialize<'de>>(options: &JsValue) -> R
     if !options.is_object() {
         return Err(JsError::new("options must be an object"));
     }
-    serde_wasm_bindgen::from_value::<AllKeys<T>>(options.clone())
+    serde_wasm_bindgen::from_value::<AllKeys<T>>(options)
         .map(|AllKeys(parsed)| parsed)
         .map_err(|e| {
             // The error renders as a JS `Error`'s `toString()`; drop its
@@ -233,9 +276,7 @@ fn to_js(value: &impl Serialize) -> Result<JsValue, JsError> {
 /// Throws when the options are malformed, no usable input was provided, or
 /// generation fails.
 #[wasm_bindgen(js_name = "cutterSanborn")]
-pub fn cutter_sanborn(
-    #[wasm_bindgen(unchecked_param_type = "SanbornOptions | null | undefined")] options: &JsValue,
-) -> Result<String, JsError> {
+pub fn cutter_sanborn(options: Option<SanbornOptionsArg>) -> Result<String, JsError> {
     let parsed: SanbornOptions = parse_options(options)?;
     sanborn_impl(&parsed)
         .map(|c| c.to_string())
@@ -252,9 +293,7 @@ pub fn cutter_sanborn(
     js_name = "cutterSanbornDetailed",
     unchecked_return_type = "CutterSanbornDetailed"
 )]
-pub fn cutter_sanborn_detailed(
-    #[wasm_bindgen(unchecked_param_type = "SanbornOptions | null | undefined")] options: &JsValue,
-) -> Result<JsValue, JsError> {
+pub fn cutter_sanborn_detailed(options: Option<SanbornOptionsArg>) -> Result<JsValue, JsError> {
     let parsed: SanbornOptions = parse_options(options)?;
     let cutter = sanborn_impl(&parsed).map_err(|e| JsError::new(&e))?;
     to_js(&Detailed::new(&cutter))
@@ -267,9 +306,7 @@ pub fn cutter_sanborn_detailed(
 /// Throws when the options are malformed, no usable input was provided, or
 /// generation fails.
 #[wasm_bindgen(js_name = "cutterLoc")]
-pub fn cutter_loc(
-    #[wasm_bindgen(unchecked_param_type = "LocOptions | null | undefined")] options: &JsValue,
-) -> Result<String, JsError> {
+pub fn cutter_loc(options: Option<LocOptionsArg>) -> Result<String, JsError> {
     let parsed: LocOptions = parse_options(options)?;
     loc_impl(&parsed)
         .map(|c| c.to_string())
@@ -286,12 +323,64 @@ pub fn cutter_loc(
     js_name = "cutterLocDetailed",
     unchecked_return_type = "CutterLocDetailed"
 )]
-pub fn cutter_loc_detailed(
-    #[wasm_bindgen(unchecked_param_type = "LocOptions | null | undefined")] options: &JsValue,
-) -> Result<JsValue, JsError> {
+pub fn cutter_loc_detailed(options: Option<LocOptionsArg>) -> Result<JsValue, JsError> {
     let parsed: LocOptions = parse_options(options)?;
     let cutter = loc_impl(&parsed).map_err(|e| JsError::new(&e))?;
     to_js(&Detailed::new(&cutter))
+}
+
+/// The JS shape of a [`csan::Outcome`].
+#[derive(Debug, Serialize)]
+struct CliResult {
+    code: u8,
+    stdout: String,
+    stderr: String,
+}
+
+/// Options accepted by [`run_cli`]: the JS shape of [`csan::Styling`].
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CliStyling {
+    /// Style text destined for standard output.
+    pub stdout: Option<bool>,
+    /// Style text destined for standard error.
+    pub stderr: Option<bool>,
+}
+
+/// Host-testable core of [`run_cli`]: runs the `csan` command-line
+/// interface on `args` (excluding the program name).
+#[must_use]
+pub fn run_cli_impl(args: Vec<String>, styling: &CliStyling) -> csan::Outcome {
+    csan::execute(
+        iter::once(String::from("csan")).chain(args),
+        csan::Styling {
+            stdout: styling.stdout.unwrap_or(false),
+            stderr: styling.stderr.unwrap_or(false),
+        },
+    )
+}
+
+/// Runs the `csan` command-line interface on `args` (excluding the program
+/// name), returning the exit code and what it printed instead of writing
+/// to the process streams.
+///
+/// This is the same interface as the native `csan` binary (options, help,
+/// messages, and exit codes) and backs the package's `csan` command.
+/// `styling` selects which streams get clap's ANSI styles (none by
+/// default).
+///
+/// # Errors
+/// Throws when `styling` is malformed, or if the result cannot be
+/// converted to a JS object.
+#[wasm_bindgen(js_name = "runCli", unchecked_return_type = "CliResult")]
+pub fn run_cli(args: Vec<String>, styling: Option<CliStylingArg>) -> Result<JsValue, JsError> {
+    let parsed: CliStyling = parse_options(styling)?;
+    let outcome = run_cli_impl(args, &parsed);
+    to_js(&CliResult {
+        code: outcome.code,
+        stdout: outcome.stdout,
+        stderr: outcome.stderr,
+    })
 }
 // The crate's tests split by target. `tests::host` covers the pure-Rust
 // cores and conversions on the host; `tests::wasm` drives the exported
@@ -416,6 +505,37 @@ mod tests {
         }
 
         #[test]
+        fn run_cli_impl_runs_the_cli_without_the_program_name() {
+            let default_styling = CliStyling::default();
+            let outcome = run_cli_impl(
+                vec![
+                    "--method".to_owned(),
+                    "cutter-loc".to_owned(),
+                    "--surname".to_owned(),
+                    "Carter".to_owned(),
+                ],
+                &default_styling,
+            );
+            assert_eq!(outcome.code, 0);
+            assert_eq!(outcome.stdout, "C378\n");
+            assert!(outcome.stderr.is_empty());
+
+            let usage = run_cli_impl(vec!["--cutter-loc".to_owned()], &default_styling);
+            assert_eq!(usage.code, 2);
+            assert!(usage.stderr.contains("--cutter-loc"));
+            assert!(!usage.stderr.contains('\u{1b}'), "unstyled by default");
+
+            let styled = run_cli_impl(
+                vec!["--cutter-loc".to_owned()],
+                &CliStyling {
+                    stderr: Some(true),
+                    ..CliStyling::default()
+                },
+            );
+            assert!(styled.stderr.contains('\u{1b}'), "styled on request");
+        }
+
+        #[test]
         fn title_only_uses_the_numeral_rule() {
             let options = LocOptions {
                 title: Some("100 best recipes".to_owned()),
@@ -432,7 +552,7 @@ mod tests {
         // trip `unused_crate_dependencies`, so the whole module is gated.
         use crate::*;
         use serde::Serialize;
-        use wasm_bindgen::JsValue;
+        use wasm_bindgen::{JsCast, JsValue};
         use wasm_bindgen_test::wasm_bindgen_test;
 
         /// A camelCase options object, serialized to a `JsValue` exactly as a
@@ -452,6 +572,11 @@ mod tests {
             suffix_len: Option<usize>,
             #[serde(skip_serializing_if = "Option::is_none")]
             max_len: Option<usize>,
+        }
+
+        /// Passes any JS value where an export takes an imported options type.
+        fn pass<T: JsCast>(value: &JsValue) -> Option<T> {
+            Some(value.clone().unchecked_into())
         }
 
         /// Serializes an options struct into the `JsValue` the exports expect.
@@ -479,7 +604,7 @@ mod tests {
                 title: Some("Oliver Twist"),
                 ..Default::default()
             });
-            assert_eq!(cutter_sanborn(&arg).unwrap(), "D548o");
+            assert_eq!(cutter_sanborn(pass(&arg)).unwrap(), "D548o");
         }
 
         #[wasm_bindgen_test]
@@ -491,7 +616,7 @@ mod tests {
                 suffix_len: Some(3),
                 ..Default::default()
             });
-            assert_eq!(cutter_sanborn(&arg).unwrap(), "Di548oli");
+            assert_eq!(cutter_sanborn(pass(&arg)).unwrap(), "Di548oli");
         }
 
         #[wasm_bindgen_test]
@@ -500,7 +625,7 @@ mod tests {
                 surname: Some("Borges"),
                 ..Default::default()
             });
-            let value = cutter_sanborn_detailed(&arg).unwrap();
+            let value = cutter_sanborn_detailed(pass(&arg)).unwrap();
             assert_eq!(field_str(&value, "alpha_prefix").as_deref(), Some("B"));
             assert_eq!(field_f64(&value, "numeric"), Some(732.0));
             assert_eq!(field_str(&value, "entry").as_deref(), Some("Borg"));
@@ -518,14 +643,14 @@ mod tests {
                 surname: Some("Carter"),
                 ..Default::default()
             });
-            assert_eq!(cutter_loc(&arg).unwrap(), "C378");
+            assert_eq!(cutter_loc(pass(&arg)).unwrap(), "C378");
 
             let clamped = opts(&Options {
                 surname: Some("Macdonald"),
                 max_len: Some(64),
                 ..Default::default()
             });
-            assert_eq!(cutter_loc(&clamped).unwrap(), "M3336");
+            assert_eq!(cutter_loc(pass(&clamped)).unwrap(), "M3336");
         }
 
         #[wasm_bindgen_test]
@@ -534,7 +659,7 @@ mod tests {
                 title: Some("100 best recipes"),
                 ..Default::default()
             });
-            let value = cutter_loc_detailed(&arg).unwrap();
+            let value = cutter_loc_detailed(pass(&arg)).unwrap();
             assert_eq!(field_str(&value, "alpha_prefix").as_deref(), Some("A"));
             assert_eq!(field_f64(&value, "numeric"), Some(153.0));
             assert_eq!(field_str(&value, "formatted").as_deref(), Some("A153"));
@@ -542,14 +667,14 @@ mod tests {
 
         #[wasm_bindgen_test]
         fn missing_input_throws() {
-            assert!(cutter_sanborn(&JsValue::UNDEFINED).is_err());
-            assert!(cutter_loc(&opts(&Options::default())).is_err());
+            assert!(cutter_sanborn(None).is_err());
+            assert!(cutter_loc(pass(&opts(&Options::default()))).is_err());
         }
 
         #[wasm_bindgen_test]
         fn non_object_options_throw() {
-            assert!(cutter_loc(&JsValue::from_str("Carter")).is_err());
-            assert!(cutter_sanborn(&JsValue::from_f64(1.0)).is_err());
+            assert!(cutter_loc(pass(&JsValue::from_str("Carter"))).is_err());
+            assert!(cutter_sanborn(pass(&JsValue::from_f64(1.0))).is_err());
         }
 
         #[wasm_bindgen_test]
@@ -557,8 +682,29 @@ mod tests {
             let arg = js_sys::Object::new();
             js_sys::Reflect::set(&arg, &"givenName".into(), &"Charles".into()).unwrap();
             js_sys::Reflect::set(&arg, &"title".into(), &"Oliver Twist".into()).unwrap();
-            assert!(cutter_sanborn(&arg).is_err());
-            assert!(cutter_loc(&arg).is_err());
+            assert!(cutter_sanborn(pass(&arg)).is_err());
+            assert!(cutter_loc(pass(&arg)).is_err());
+        }
+
+        #[wasm_bindgen_test]
+        fn run_cli_returns_code_and_output() {
+            let result = run_cli(vec!["--surname".to_owned(), "Dickens".to_owned()], None).unwrap();
+            assert_eq!(field_f64(&result, "code"), Some(0.0));
+            assert_eq!(field_str(&result, "stdout").as_deref(), Some("D548\n"));
+            assert_eq!(field_str(&result, "stderr").as_deref(), Some(""));
+
+            let usage = run_cli(vec!["--method".to_owned(), "dewey".to_owned()], None).unwrap();
+            assert_eq!(field_f64(&usage, "code"), Some(2.0));
+            assert!(
+                field_str(&usage, "stderr")
+                    .unwrap()
+                    .contains("possible values")
+            );
+
+            // An unknown styling key throws, like the other options.
+            let bad = js_sys::Object::new();
+            js_sys::Reflect::set(&bad, &"colour".into(), &true.into()).unwrap();
+            assert!(run_cli(vec![], pass(&bad)).is_err());
         }
 
         #[wasm_bindgen_test]
@@ -567,7 +713,7 @@ mod tests {
                 surname: Some("   "),
                 ..Default::default()
             });
-            assert!(cutter_sanborn(&arg).is_err());
+            assert!(cutter_sanborn(pass(&arg)).is_err());
         }
     }
 }

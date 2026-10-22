@@ -4,11 +4,15 @@
 //     node examples/smoke-test.cjs
 
 const assert = require("node:assert/strict");
+const { spawn, spawnSync } = require("node:child_process");
+const fs = require("node:fs");
+const path = require("node:path");
 const {
   cutterSanborn,
   cutterSanbornDetailed,
   cutterLoc,
   cutterLocDetailed,
+  runCli,
 } = require("../pkg-node/csan_web.js");
 
 const dickens = {
@@ -53,4 +57,103 @@ assert.throws(
   (e) => e.message.startsWith("invalid type"),
 );
 
-console.log("csan-web node smoke test passed");
+// runCli: the native CLI's interface, with the output captured.
+assert.deepEqual(runCli(["--surname", "Dickens", "--title", "Oliver Twist"]), {
+  code: 0,
+  stdout: "D548o\n",
+  stderr: "",
+});
+assert.equal(runCli(["--method=cutter-loc", "--surname", "Carter"]).stdout, "C378\n");
+
+// The package's `csan` command (bin/csan.cjs), run as a process.
+const bin = path.join(__dirname, "..", "pkg-node", "bin", "csan.cjs");
+// Without inherited color settings, so piped output is never styled.
+const plainEnv = { ...process.env };
+for (const name of ["NO_COLOR", "CLICOLOR", "CLICOLOR_FORCE"]) delete plainEnv[name];
+const csan = (...args) => spawnSync(process.execPath, [bin, ...args], { encoding: "utf8", env: plainEnv });
+
+let run = csan("--method", "cutter-loc", "--surname", "Dickens");
+assert.equal(run.status, 0);
+assert.equal(run.stdout, "D535\n");
+assert.equal(run.stderr, "");
+
+run = csan("--help");
+assert.equal(run.status, 0);
+assert.match(run.stdout, /--method <METHOD>/);
+
+run = csan("--version");
+assert.equal(run.status, 0);
+assert.match(run.stdout, /^csan \d+\.\d+\.\d+\n$/);
+
+run = csan("--method", "dewey");
+assert.equal(run.status, 2, "usage error");
+assert.equal(run.stdout, "");
+assert.match(run.stderr, /possible values: cutter-sanborn, cutter-loc/);
+
+run = csan();
+assert.equal(run.status, 1, "runtime error");
+assert.match(run.stderr, /provide at least one non-blank input/);
+
+// Styling follows the native rules: CLICOLOR_FORCE styles clap's usage
+// errors and help, never the results.
+const forced = (...args) =>
+  spawnSync(process.execPath, [bin, ...args], {
+    encoding: "utf8",
+    env: { ...plainEnv, CLICOLOR_FORCE: "1" },
+  });
+assert.match(forced("--method", "dewey").stderr, /\u001b\[/);
+assert.match(forced("--help").stdout, /\u001b\[/);
+assert.equal(forced("--surname", "Carter").stdout, "C323\n");
+assert.doesNotMatch(csan("--method", "dewey").stderr, /\u001b/);
+
+// A full disk is reported and exits 1, as for the native binary.
+if (fs.existsSync("/dev/full")) {
+  const full = fs.openSync("/dev/full", "w");
+  run = spawnSync(process.execPath, [bin, "--surname", "Carter"], {
+    encoding: "utf8",
+    env: plainEnv,
+    stdio: ["ignore", full, "pipe"],
+  });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /^error: failed to write output:/);
+
+  // A broken stream the run does not use changes nothing.
+  run = spawnSync(process.execPath, [bin, "--surname", "Carter"], {
+    encoding: "utf8",
+    env: plainEnv,
+    stdio: ["ignore", "pipe", full],
+  });
+  assert.equal(run.status, 0);
+  assert.equal(run.stdout, "C323\n");
+  run = spawnSync(process.execPath, [bin, "--method", "dewey"], {
+    encoding: "utf8",
+    env: plainEnv,
+    stdio: ["ignore", full, "pipe"],
+  });
+  assert.equal(run.status, 2, "a usage error still exits 2");
+  fs.closeSync(full);
+}
+
+// A reader that goes away (`csan --help | head -1`) is not an error: the
+// exit code stands and nothing is reported.
+const closedPipe = new Promise((resolve) => {
+  const child = spawn(process.execPath, [bin, "--help"], {
+    env: plainEnv,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  child.stdout.destroy();
+  let stderrText = "";
+  child.stderr.on("data", (chunk) => (stderrText += chunk));
+  child.on("close", (status) => resolve({ status, stderrText }));
+  // A hung child fails the test instead of hanging it.
+  setTimeout(() => {
+    child.kill();
+    assert.fail("closed-pipe case timed out");
+  }, 30_000).unref();
+});
+
+closedPipe.then(({ status, stderrText }) => {
+  assert.equal(status, 0, "closed pipe keeps the exit code");
+  assert.equal(stderrText, "", "closed pipe is not reported");
+  console.log("csan-web node smoke test passed");
+});
