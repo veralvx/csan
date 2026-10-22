@@ -210,18 +210,22 @@ and installers and attaches, to the same GitHub release:
   aarch64) and sdist;
 - the Node npm package (`veralvx-csan-<version>.tgz`).
 
-Once the release succeeds, three workflows publish it, each with trusted
-publishing (the one-time setup is described at the top of each file):
+Three workflows then publish the release, each only once the Release
+workflow has succeeded and each with trusted publishing (the one-time setup
+is described at the top of each file):
 
 - `publish-pypi.yml` uploads the release's wheels and sdist to
-  [PyPI](https://pypi.org/project/csan/);
+  [PyPI](https://pypi.org/project/csan/) (it runs when the Release
+  workflow completes);
 - `publish-npm.yml` publishes the release's npm tarball as
   [`@veralvx/csan`](https://www.npmjs.com/package/@veralvx/csan);
 - `publish-crates.yml` publishes `csan-core`, then `csan`, from the tag to
   [crates.io](https://crates.io/crates/csan).
 
-Each can also be run by hand for a release tag, and skips whatever that
-release already published.
+The npm and crates.io workflows start on the tag push and wait for that
+tag's Release run, since crates.io trusted publishing does not accept
+`workflow_run` events. Each workflow can also be run by hand for a release
+tag, and skips whatever that release already published.
 
 ## Development
 
