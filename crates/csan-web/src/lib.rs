@@ -38,6 +38,7 @@ use serde::de::value::MapAccessDeserializer;
 use serde::de::{Deserializer, MapAccess, Visitor};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::iter;
 use std::marker::PhantomData;
 use wasm_bindgen::prelude::{JsError, JsValue, wasm_bindgen};
 
@@ -88,6 +89,17 @@ export interface CutterLocDetailed {
   alpha_prefix: string;
   numeric: number;
   formatted: string;
+}
+
+/** What a `runCli` invocation printed, and its exit code. */
+export interface CliResult {
+  /** 0 on success (and for --help/--version), 1 on a runtime failure,
+   *  2 on a usage error. */
+  code: number;
+  /** Standard output, newline-terminated when non-empty. */
+  stdout: string;
+  /** Standard error, newline-terminated when non-empty. */
+  stderr: string;
 }
 "#;
 
@@ -293,6 +305,40 @@ pub fn cutter_loc_detailed(
     let cutter = loc_impl(&parsed).map_err(|e| JsError::new(&e))?;
     to_js(&Detailed::new(&cutter))
 }
+
+/// The JS shape of a [`csan::Outcome`].
+#[derive(Debug, Serialize)]
+struct CliResult {
+    code: u8,
+    stdout: String,
+    stderr: String,
+}
+
+/// Host-testable core of [`run_cli`]: runs the `csan` command-line
+/// interface on `args` (excluding the program name).
+#[must_use]
+pub fn run_cli_impl(args: Vec<String>) -> csan::Outcome {
+    csan::execute(iter::once(String::from("csan")).chain(args))
+}
+
+/// Runs the `csan` command-line interface on `args` (excluding the program
+/// name), returning the exit code and what it printed instead of writing
+/// to the process streams.
+///
+/// This is the same interface as the native `csan` binary (options, help,
+/// messages, and exit codes) and backs the package's `csan` command.
+///
+/// # Errors
+/// Throws only if the result cannot be converted to a JS object.
+#[wasm_bindgen(js_name = "runCli", unchecked_return_type = "CliResult")]
+pub fn run_cli(args: Vec<String>) -> Result<JsValue, JsError> {
+    let outcome = run_cli_impl(args);
+    to_js(&CliResult {
+        code: outcome.code,
+        stdout: outcome.stdout,
+        stderr: outcome.stderr,
+    })
+}
 // The crate's tests split by target. `tests::host` covers the pure-Rust
 // cores and conversions on the host; `tests::wasm` drives the exported
 // `JsValue` surface under a wasm-bindgen-test runner. Each inner module
@@ -413,6 +459,23 @@ mod tests {
                 loc_err.contains("prefixLen"),
                 "unhelpful message: {loc_err}"
             );
+        }
+
+        #[test]
+        fn run_cli_impl_runs_the_cli_without_the_program_name() {
+            let outcome = run_cli_impl(vec![
+                "--method".to_owned(),
+                "cutter-loc".to_owned(),
+                "--surname".to_owned(),
+                "Carter".to_owned(),
+            ]);
+            assert_eq!(outcome.code, 0);
+            assert_eq!(outcome.stdout, "C378\n");
+            assert!(outcome.stderr.is_empty());
+
+            let usage = run_cli_impl(vec!["--cutter-loc".to_owned()]);
+            assert_eq!(usage.code, 2);
+            assert!(usage.stderr.contains("--cutter-loc"));
         }
 
         #[test]
@@ -559,6 +622,22 @@ mod tests {
             js_sys::Reflect::set(&arg, &"title".into(), &"Oliver Twist".into()).unwrap();
             assert!(cutter_sanborn(&arg).is_err());
             assert!(cutter_loc(&arg).is_err());
+        }
+
+        #[wasm_bindgen_test]
+        fn run_cli_returns_code_and_output() {
+            let result = run_cli(vec!["--surname".to_owned(), "Dickens".to_owned()]).unwrap();
+            assert_eq!(field_f64(&result, "code"), Some(0.0));
+            assert_eq!(field_str(&result, "stdout").as_deref(), Some("D548\n"));
+            assert_eq!(field_str(&result, "stderr").as_deref(), Some(""));
+
+            let usage = run_cli(vec!["--method".to_owned(), "dewey".to_owned()]).unwrap();
+            assert_eq!(field_f64(&usage, "code"), Some(2.0));
+            assert!(
+                field_str(&usage, "stderr")
+                    .unwrap()
+                    .contains("possible values")
+            );
         }
 
         #[wasm_bindgen_test]

@@ -122,11 +122,85 @@ pub fn run(cli: &Cli) -> Result<String, String> {
     }
 }
 
+/// The result of a CLI invocation: what to print and the exit code.
+///
+/// Returned by [`execute`] for hosts that capture the output instead of
+/// writing to the process streams (the WebAssembly build has none).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Outcome {
+    /// The process exit code (see [`run_from_args`]).
+    pub code: u8,
+    /// Text for standard output, newline-terminated when non-empty.
+    pub stdout: String,
+    /// Text for standard error, newline-terminated when non-empty.
+    pub stderr: String,
+}
+
+/// The outcome of running a successfully parsed [`Cli`].
+fn outcome_of(cli: &Cli) -> Outcome {
+    match run(cli) {
+        Ok(output) => Outcome {
+            code: 0,
+            stdout: format!("{output}\n"),
+            stderr: String::new(),
+        },
+        Err(message) => Outcome {
+            code: 1,
+            stdout: String::new(),
+            stderr: format!("error: {message}\n"),
+        },
+    }
+}
+
+/// The exit code for a parse "error": `--help`/`--version` land here too;
+/// those displays exit 0 and usage errors exit 2.
+fn parse_error_code(parse_error: &clap::Error) -> u8 {
+    let displays_only = matches!(
+        parse_error.kind(),
+        ErrorKind::DisplayHelp | ErrorKind::DisplayVersion
+    );
+    if displays_only { 0 } else { 2 }
+}
+
+/// Parses `argv` (including the program name) and executes it without
+/// touching the process streams, returning what to print and the exit code.
+///
+/// This is [`run_from_args`] for hosts that print the [`Outcome`]
+/// themselves; both share the same parsing, messages, and exit codes. Text
+/// is unstyled (no ANSI colors).
+pub fn execute<I, T>(argv: I) -> Outcome
+where
+    I: IntoIterator<Item = T>,
+    T: Into<OsString> + Clone,
+{
+    match Cli::try_parse_from(argv) {
+        Ok(cli) => outcome_of(&cli),
+        Err(parse_error) => {
+            let text = parse_error.render().to_string();
+            let code = parse_error_code(&parse_error);
+            if parse_error.use_stderr() {
+                Outcome {
+                    code,
+                    stdout: String::new(),
+                    stderr: text,
+                }
+            } else {
+                Outcome {
+                    code,
+                    stdout: text,
+                    stderr: String::new(),
+                }
+            }
+        }
+    }
+}
+
 /// Parses `argv` (including the program name), executes it, prints the
 /// result or error, and returns the process exit code.
 ///
 /// This is the single exit-code policy point shared by the standalone
-/// binary and the Python console script: `0` on success (including
+/// binary, the Python console script, and (through [`execute`]) the npm
+/// package's `csan` command: `0` on success (including
 /// `--help`/`--version`), `1` for runtime failures, and `2` for argument
 /// errors, with results on stdout and diagnostics on stderr.
 pub fn run_from_args<I, T>(argv: I) -> u8
@@ -135,28 +209,19 @@ where
     T: Into<OsString> + Clone,
 {
     match Cli::try_parse_from(argv) {
-        Ok(cli) => match run(&cli) {
-            Ok(output) => {
-                println!("{output}");
-                0
-            }
-            Err(message) => {
-                eprintln!("error: {message}");
-                1
-            }
-        },
+        Ok(cli) => {
+            let outcome = outcome_of(&cli);
+            print!("{}", outcome.stdout);
+            eprint!("{}", outcome.stderr);
+            outcome.code
+        }
         Err(parse_error) => {
-            // --help/--version land here too; clap renders them and the
-            // conventional exit codes apply (0 for the displays, 2 for
-            // usage errors).
-            let displays_only = matches!(
-                parse_error.kind(),
-                ErrorKind::DisplayHelp | ErrorKind::DisplayVersion
-            );
-            // Nothing useful can be done if rendering fails (e.g. the
-            // pipe is already closed, as with `csan --help | head`).
+            // clap prints help and version to stdout and errors to stderr,
+            // styled when the stream is a terminal. Nothing useful can be
+            // done if that fails (e.g. the pipe is already closed, as with
+            // `csan --help | head`).
             parse_error.print().unwrap_or_default();
-            if displays_only { 0 } else { 2 }
+            parse_error_code(&parse_error)
         }
     }
 }
@@ -193,6 +258,71 @@ mod tests {
             1,
             "blank input is a runtime failure"
         );
+    }
+
+    #[test]
+    fn execute_captures_output_and_exit_codes() {
+        let ok = execute(["csan", "--surname", "Dickens", "--title", "Oliver Twist"]);
+        assert_eq!(
+            ok,
+            Outcome {
+                code: 0,
+                stdout: "D548o\n".to_owned(),
+                stderr: String::new(),
+            }
+        );
+
+        let runtime = execute(["csan", "--surname", "  "]);
+        assert_eq!(runtime.code, 1);
+        assert!(runtime.stdout.is_empty());
+        assert!(runtime.stderr.starts_with("error: provide at least one"));
+
+        // Usage errors go to stderr, the --help/--version displays to
+        // stdout, as clap prints them for the native binary.
+        let usage = execute(["csan", "--method", "dewey"]);
+        assert_eq!(usage.code, 2);
+        assert!(usage.stdout.is_empty());
+        assert!(
+            usage
+                .stderr
+                .contains("possible values: cutter-sanborn, cutter-loc")
+        );
+
+        let help = execute(["csan", "--help"]);
+        assert_eq!(help.code, 0);
+        assert!(help.stdout.contains("--method <METHOD>"));
+        assert!(help.stderr.is_empty());
+
+        let version = execute(["csan", "--version"]);
+        assert_eq!(
+            version.stdout,
+            format!("csan {}\n", env!("CARGO_PKG_VERSION"))
+        );
+    }
+
+    #[test]
+    fn execute_text_is_unstyled() {
+        for args in [&["csan", "--help"][..], &["csan", "--method", "dewey"][..]] {
+            let outcome = execute(args);
+            for text in [&outcome.stdout, &outcome.stderr] {
+                assert!(!text.contains('\u{1b}'), "ANSI escape in {args:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn execute_and_run_from_args_agree_on_exit_codes() {
+        for args in [
+            &["csan", "--surname", "Carter"][..],
+            &["csan", "--method", "cutter-loc", "--surname", "Carter"][..],
+            &["csan", "--help"][..],
+            &["csan", "--version"][..],
+            &["csan", "--method", "dewey"][..],
+            &["csan", "--cutter-loc"][..],
+            &["csan"][..],
+        ] {
+            assert_eq!(execute(args).code, run_from_args(args), "{args:?}");
+        }
     }
 
     #[test]

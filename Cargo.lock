@@ -227,6 +227,7 @@ dependencies = [
 name = "csan-web"
 version = "0.6.1"
 dependencies = [
+ "csan",
  "csan-core",
  "js-sys",
  "serde",

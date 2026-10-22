@@ -31,6 +31,22 @@ cutter's parts as a plain object whose keys (`alpha_prefix`, `numeric`,
 `alpha_suffix`, `entry`, `formatted`) match the shared representation used by
 the other `csan` frontends.
 
+## Command line
+
+The package provides the `csan` command, the same command-line interface as
+the native `csan` binary (options, help, messages, and exit codes), compiled
+into the package's WebAssembly module:
+
+```sh
+npx @veralvx/csan --forename Charles --surname Dickens --title "Oliver Twist"   # D548o
+npx @veralvx/csan --method cutter-loc --surname Carter                         # C378
+npx @veralvx/csan --help
+```
+
+`runCli(args)` exposes the same interface to code: it takes the arguments
+(without the program name) and returns `{ code, stdout, stderr }` instead
+of printing.
+
 ## Installing
 
 The package is published to npm as

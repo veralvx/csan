@@ -4,11 +4,14 @@
 //     node examples/smoke-test.cjs
 
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
+const path = require("node:path");
 const {
   cutterSanborn,
   cutterSanbornDetailed,
   cutterLoc,
   cutterLocDetailed,
+  runCli,
 } = require("../pkg-node/csan_web.js");
 
 const dickens = {
@@ -52,5 +55,39 @@ assert.throws(
   () => cutterLoc({ surname: "Carter", maxLen: 2.5 }),
   (e) => e.message.startsWith("invalid type"),
 );
+
+// runCli: the native CLI's interface, with the output captured.
+assert.deepEqual(runCli(["--surname", "Dickens", "--title", "Oliver Twist"]), {
+  code: 0,
+  stdout: "D548o\n",
+  stderr: "",
+});
+assert.equal(runCli(["--method=cutter-loc", "--surname", "Carter"]).stdout, "C378\n");
+
+// The package's `csan` command (bin/csan.cjs), run as a process.
+const bin = path.join(__dirname, "..", "pkg-node", "bin", "csan.cjs");
+const csan = (...args) => spawnSync(process.execPath, [bin, ...args], { encoding: "utf8" });
+
+let run = csan("--method", "cutter-loc", "--surname", "Dickens");
+assert.equal(run.status, 0);
+assert.equal(run.stdout, "D535\n");
+assert.equal(run.stderr, "");
+
+run = csan("--help");
+assert.equal(run.status, 0);
+assert.match(run.stdout, /--method <METHOD>/);
+
+run = csan("--version");
+assert.equal(run.status, 0);
+assert.match(run.stdout, /^csan \d+\.\d+\.\d+\n$/);
+
+run = csan("--method", "dewey");
+assert.equal(run.status, 2, "usage error");
+assert.equal(run.stdout, "");
+assert.match(run.stderr, /possible values: cutter-sanborn, cutter-loc/);
+
+run = csan();
+assert.equal(run.status, 1, "runtime error");
+assert.match(run.stderr, /provide at least one non-blank input/);
 
 console.log("csan-web node smoke test passed");
