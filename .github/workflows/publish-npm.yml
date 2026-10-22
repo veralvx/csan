@@ -1,0 +1,134 @@
+# Publishes the Node package to npm as @veralvx/csan once a version-bump
+# release succeeds: `just release` pushes the tag, the Release workflow
+# builds and smoke-tests the package (`just npm-pack`, see
+# release-extra-artifacts.yml) and attaches it to the GitHub Release, and
+# this workflow publishes exactly that tarball.
+#
+# Authentication is npm trusted publishing (OIDC), with an NPM_TOKEN
+# repository secret as a fallback. One-time setup:
+#   1. npmjs.com → package @veralvx/csan → Settings → Trusted publishing →
+#      GitHub Actions: owner `veralvx`, repository `csan`, workflow
+#      `publish-npm.yml`, environment `npm`.
+#   2. GitHub → Settings → Environments → create `npm` (optionally with
+#      required reviewers). A deployment branch rule must allow `main`:
+#      workflow_run jobs run on the default branch, not on the tag.
+#
+# To (re)publish a release by hand, run it from the Actions tab with the
+# release tag; a version already on npm is skipped.
+name: Publish to npm
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (e.g. v1.2.3)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.tag || github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+env:
+  # Keep in sync with NPM_PACKAGE in the justfile.
+  PACKAGE: "@veralvx/csan"
+
+jobs:
+  publish:
+    name: Publish @veralvx/csan
+    # The Release workflow also runs (plan-only) for pull requests; only a
+    # successful tag push from this repository is a release.
+    if: >-
+      github.event_name == 'workflow_dispatch' || (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@veralvx/csan
+    permissions:
+      contents: read # download the release assets
+      id-token: write # npm trusted publishing and provenance
+    steps:
+      - name: Resolve the release tag
+        id: release
+        env:
+          # For a tag push, the triggering run's head_branch is the tag name.
+          TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+        run: |
+          # The Release workflow also accepts prerelease tags (vX.Y.Z-rc.1),
+          # which would need an npm dist-tag; those are not published here.
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::notice::'$TAG' is not a vX.Y.Z release tag; nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            echo "publish=true"
+            echo "tag=$TAG"
+            echo "version=${TAG#v}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check whether this version is already on npm
+        id: registry
+        if: steps.release.outputs.publish == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          status="$(curl -sS -o /dev/null -w '%{http_code}' \
+            "https://registry.npmjs.org/${PACKAGE/\//%2f}/$VERSION")"
+          case "$status" in
+            200)
+              echo "::notice::$PACKAGE@$VERSION is already on npm; nothing to publish."
+              echo "missing=false" >> "$GITHUB_OUTPUT" ;;
+            404) echo "missing=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::npm registry returned HTTP $status"; exit 1 ;;
+          esac
+
+      - name: Download the package from the GitHub Release
+        if: steps.registry.outputs.missing == 'true'
+        id: tarball
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          # `npm pack` names a scoped package's tarball <scope>-<name>-<version>.tgz.
+          file="veralvx-csan-$VERSION.tgz"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dist \
+            --pattern "$file" --pattern "$file.sha256"
+          (cd dist && sha256sum -c "$file.sha256")
+          # Refuse a tarball whose manifest is not this package and version.
+          tar -xzOf "dist/$file" package/package.json \
+            | jq -e --arg name "$PACKAGE" --arg version "$VERSION" \
+              '.name == $name and .version == $version' > /dev/null \
+            || { echo "::error::dist/$file is not $PACKAGE@$VERSION"; exit 1; }
+          echo "path=dist/$file" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v6
+        if: steps.registry.outputs.missing == 'true'
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm >= 11.5.1.
+      - name: Update npm
+        if: steps.registry.outputs.missing == 'true'
+        run: npm install -g npm@latest && npm --version
+
+      - name: Publish
+        if: steps.registry.outputs.missing == 'true'
+        env:
+          # Empty unless the fallback secret is set; npm then authenticates
+          # through trusted publishing.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TARBALL: ${{ steps.tarball.outputs.path }}
+        run: npm publish "$TARBALL" --access public --provenance
