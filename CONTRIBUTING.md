@@ -29,9 +29,9 @@ git clone https://github.com/veralvx/csan && cd csan
 
 ## Architecture and Guidelines
 
-The workspace centers on `crates/csan` (the cutter number library —
+The workspace centers on `crates/csan-core` (the cutter number library —
 normalization, models, generators, and the Cutter-Sanborn table), wrapped
-by four thin frontends: `crates/csan-cli` (the `csan` binary),
+by four thin frontends: `crates/csan` (the `csan` binary),
 `crates/csan-typst` (the Typst WASM plugin, with the Typst package under
 `crates/csan-typst/pkg/`), `crates/csan-py` (Python bindings), and
 `crates/csan-web` (JavaScript/npm bindings). Frontends stay thin: shared
