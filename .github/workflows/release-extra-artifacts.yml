@@ -17,6 +17,9 @@ on:
         required: true
         type: string
   push:
+    # Branch pushes only: path filters are not evaluated for tag pushes, so
+    # without this every release tag would also run a duplicate build.
+    branches: ["**"]
     paths:
       - ".github/workflows/release-extra-artifacts.yml"
   pull_request:

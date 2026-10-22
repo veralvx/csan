@@ -22,8 +22,9 @@ Every function takes one options object with camelCase keys: `forename`,
 `surname`, `title`, plus `prefixLen`/`suffixLen` for Cutter-Sanborn and
 `maxLen` (clamped to 4) for the Library of Congress method. At least one of
 the name/title inputs must be non-blank; blank strings count as absent.
-Unknown keys are rejected (a misspelled key, or `prefixLen` passed to
-`cutterLoc`, throws instead of being silently ignored). Failures throw a
+Only the object's own properties are read, and unknown keys are rejected (a
+misspelled key, or `prefixLen` passed to `cutterLoc`, throws instead of
+being silently ignored). Failures throw a
 JavaScript `Error`. The package ships TypeScript declarations for the
 options (`SanbornOptions`, `LocOptions`) and the detailed results. The `*Detailed` variants return the
 cutter's parts as a plain object whose keys (`alpha_prefix`, `numeric`,
