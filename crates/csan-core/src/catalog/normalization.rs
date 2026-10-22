@@ -130,7 +130,7 @@ fn push_folded(out: &mut String, c: char) {
 /// # Examples
 /// ```
 /// use std::borrow::Cow;
-/// # use csan::catalog::normalization::to_ascii_alphabetic;
+/// # use csan_core::catalog::normalization::to_ascii_alphabetic;
 ///
 /// let clean = to_ascii_alphabetic(Cow::Borrowed("Borges")).unwrap();
 /// assert!(matches!(clean, Cow::Borrowed(_))); // no allocation
@@ -198,7 +198,7 @@ pub fn to_ascii_alphabetic(input: Cow<'_, str>) -> Result<Cow<'_, str>, Normaliz
 /// # Examples
 /// ```
 /// use std::borrow::Cow;
-/// # use csan::catalog::normalization::capitalize_ascii;
+/// # use csan_core::catalog::normalization::capitalize_ascii;
 ///
 /// let correctly_cased = capitalize_ascii(Cow::Borrowed("Doe"));
 /// assert_eq!(correctly_cased, "Doe");
@@ -258,7 +258,7 @@ pub fn capitalize_ascii(input: Cow<'_, str>) -> Cow<'_, str> {
 /// # Examples
 /// ```
 /// use std::borrow::Cow;
-/// # use csan::catalog::normalization::normalize_mac;
+/// # use csan_core::catalog::normalization::normalize_mac;
 /// let expanded = normalize_mac(Cow::Borrowed("M'Clintock"));
 /// assert_eq!(expanded, "MacClintock");
 ///

@@ -16,7 +16,7 @@ workspace = true
 
 [dependencies]
 ciborium = { workspace = true }
-csan = { workspace = true }
+csan-core = { workspace = true }
 serde = { workspace = true }
 
 # The protocol macros only make sense (and only generate code) for the wasm

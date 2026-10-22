@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-//! Typst WASM plugin exposing [`csan`]'s Cutter call number generation.
+//! Typst WASM plugin exposing [`csan_core`]'s Cutter call number generation.
 //!
 //! Compiled to `wasm32-unknown-unknown`, this crate speaks the [Typst plugin
 //! protocol](https://typst.app/docs/reference/foundations/plugin/#protocol)
@@ -24,7 +24,7 @@
 //! functions, which is how the unit tests exercise the exact plugin surface.
 
 use ciborium::{de::from_reader, ser::into_writer};
-use csan::{
+use csan_core::{
     Attribution, Author, CutterConfig, CutterGenerator, CutterLoc, CutterLocMethod, CutterSanborn,
     CutterSanbornMethod, Detailed,
 };

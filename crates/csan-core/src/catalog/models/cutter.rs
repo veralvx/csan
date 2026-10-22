@@ -26,7 +26,7 @@ impl CutterLoc {
     ///
     /// # Examples
     /// ```
-    /// # use csan::catalog::models::cutter::CutterLoc;
+    /// # use csan_core::catalog::models::cutter::CutterLoc;
     ///
     /// let loc_cutter = CutterLoc::new('C', 378);
     /// assert_eq!(loc_cutter.to_string(), "C378");

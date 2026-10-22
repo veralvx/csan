@@ -4,7 +4,7 @@
 // while allowing the macro-generated blocks through.
 #![deny(unsafe_code)]
 
-//! JavaScript bindings for [`csan`]'s Cutter call number generation,
+//! JavaScript bindings for [`csan_core`]'s Cutter call number generation,
 //! built with [`wasm-bindgen`](https://github.com/wasm-bindgen/wasm-bindgen).
 //!
 //! Compiled to `wasm32-unknown-unknown` (typically via `wasm-pack`), this
@@ -28,7 +28,7 @@
 //! the `*_impl` functions compile and are unit-tested on the host, so the
 //! full logic path is exercised without a browser.
 
-use csan::{
+use csan_core::{
     Attribution, CutterConfig, CutterGenerator, CutterLoc, CutterLocMethod, CutterSanborn,
     CutterSanbornMethod, Detailed,
 };
@@ -115,7 +115,7 @@ fn parse_options<T: Default + for<'de> Deserialize<'de>>(options: &JsValue) -> R
 
 /// Serializes a value into a plain JS object.
 ///
-/// The [`Detailed`](csan::Detailed) adapter serializes through serde's map
+/// The [`Detailed`](csan_core::Detailed) adapter serializes through serde's map
 /// interface; serde-wasm-bindgen would otherwise render that as a JS `Map`,
 /// so `serialize_maps_as_objects` keeps the output a plain object with the
 /// fields as properties (what JS callers expect).
@@ -205,7 +205,7 @@ mod tests {
             let cutter = sanborn_impl(&options).unwrap();
             assert_eq!(cutter.to_string(), "D548o");
 
-            let parts = csan::detailed_json(&cutter).unwrap();
+            let parts = csan_core::detailed_json(&cutter).unwrap();
             assert_eq!(parts["alpha_prefix"], "D");
             assert_eq!(parts["numeric"], 548);
             assert_eq!(parts["alpha_suffix"], "o");
@@ -232,7 +232,7 @@ mod tests {
             };
             let cutter = loc_impl(&options).unwrap();
             assert_eq!(cutter.to_string(), "C378");
-            assert_eq!(csan::detailed_json(&cutter).unwrap()["alpha_prefix"], "C");
+            assert_eq!(csan_core::detailed_json(&cutter).unwrap()["alpha_prefix"], "C");
 
             let clamped = LocOptions {
                 surname: Some("Macdonald".to_owned()),
@@ -270,7 +270,7 @@ mod tests {
                 ..Default::default()
             })
             .unwrap();
-            let parts = csan::detailed_json(&cutter).unwrap();
+            let parts = csan_core::detailed_json(&cutter).unwrap();
             assert_eq!(parts["alpha_prefix"], "C");
             assert_eq!(parts["numeric"], 378);
             assert_eq!(parts["formatted"], "C378");

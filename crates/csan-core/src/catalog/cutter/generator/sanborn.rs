@@ -163,8 +163,8 @@ where
     ///
     /// # Examples
     /// ```
-    /// # use csan::catalog::models::{author::Author, opus::Opus, entry::Attribution};
-    /// # use csan::catalog::cutter::generator::{CutterGenerator, CutterSanbornMethod, CutterConfig};
+    /// # use csan_core::catalog::models::{author::Author, opus::Opus, entry::Attribution};
+    /// # use csan_core::catalog::cutter::generator::{CutterGenerator, CutterSanbornMethod, CutterConfig};
     ///
     /// let author = Author::surname_only("Borges");
     /// let opus = Opus::new("Ficciones");
