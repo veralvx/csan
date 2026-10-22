@@ -2,12 +2,12 @@
 **/target/
 .drafts/
 .vscode
+**/.ropeproject
 ideas.*
 todo.md
 vendor/
 # Typst compile outputs from the plugin test/example documents
 crates/csan-typst/pkg/**/*.pdf
-
 # Generated npm packages from wasm-pack
 crates/csan-web/pkg/
 crates/csan-web/pkg-node/
