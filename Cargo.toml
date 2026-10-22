@@ -18,9 +18,9 @@ readme = "README.md"
 repository = "https://github.com/veralvx/csan"
 
 [workspace.dependencies]
-csan = { path = "crates/csan", version = "0.5.10" }
 ciborium = "0.2.2"
 clap = { version = "4.5", features = ["derive"] }
+csan = { path = "crates/csan", version = "0.5.10" }
 derive_more = { version = "2.1", features = ["display", "error"] }
 js-sys = "0.3"
 pyo3 = { version = "0.30.1", features = ["extension-module", "abi3-py39"] }
@@ -90,18 +90,18 @@ restriction = { level = "warn", priority = -1 }
 blanket_clippy_restriction_lints = "allow" # the group-enable itself is the documented policy
 
 # -- mutually-exclusive style pairs: one side must be allowed ----------
-pub_with_shorthand = "allow"       # house style is `pub(crate)`, not `pub(in crate)`
+pub_with_shorthand = "allow" # house style is `pub(crate)`, not `pub(in crate)`
 separated_literal_suffix = "allow" # house style is `4096_u64`; unseparated_literal_suffix stays on
-semicolon_outside_block = "allow"  # house style is `{ .. };` — the inside-block pair stays on
-self_named_module_files = "allow"  # house layout is `foo.rs` + `foo/`; mod_module_files stays on
+semicolon_outside_block = "allow" # house style is `{ .. };` — the inside-block pair stays on
+self_named_module_files = "allow" # house layout is `foo.rs` + `foo/`; mod_module_files stays on
 multiple_crate_versions = "allow"
 # -- library API shape this workspace chooses deliberately -------------
-pub_use = "allow"                        # curated re-export facades (crate root, catalog::models) are the public API
-module_name_repetitions = "allow"        # `normalization::NormalizationError` etc. read correctly at the re-exported call sites
-impl_trait_in_params = "allow"           # `impl Into<String>` constructors are the intended ergonomic surface
-inline_trait_bounds = "allow"            # inline `impl Trait` / `<T: Bound>` bounds are house style over where-clauses
-exhaustive_enums = "allow"               # `Attribution` is core domain data; matching on it is the API
-exhaustive_structs = "allow"             # `CutterConfig` is constructed with struct literals + `..Default::default()`
+pub_use = "allow" # curated re-export facades (crate root, catalog::models) are the public API
+module_name_repetitions = "allow" # `normalization::NormalizationError` etc. read correctly at the re-exported call sites
+impl_trait_in_params = "allow" # `impl Into<String>` constructors are the intended ergonomic surface
+inline_trait_bounds = "allow" # inline `impl Trait` / `<T: Bound>` bounds are house style over where-clauses
+exhaustive_enums = "allow" # `Attribution` is core domain data; matching on it is the API
+exhaustive_structs = "allow" # `CutterConfig` is constructed with struct literals + `..Default::default()`
 missing_inline_in_public_items = "allow" # cross-crate inlining is left to LTO (enabled in release)
 
 # -- documentation policy ----------------------------------------------
@@ -114,29 +114,28 @@ doc_paragraphs_missing_punctuation = "allow" # doc summaries deliberately use fr
 implicit_return = "allow"
 min_ident_chars = "allow"
 question_mark_used = "allow"
-single_call_fn = "allow"                 # single-use helpers are the decomposition style
-inline_modules = "allow"                 # small `#[cfg(test)] mod tests` style modules stay inline
-missing_trait_methods = "allow"          # provided trait methods (UsesTable::retrieve_*) are the point of the trait
+single_call_fn = "allow" # single-use helpers are the decomposition style
+inline_modules = "allow" # small `#[cfg(test)] mod tests` style modules stay inline
+missing_trait_methods = "allow" # provided trait methods (UsesTable::retrieve_*) are the point of the trait
 arbitrary_source_item_ordering = "allow" # files are ordered pedagogically (pipeline order),
 # not alphabetically
-unused_trait_names = "allow"              # `use Trait as _` churn without benefit here
-shadow_reuse = "allow"                    # idiomatic rebinding (`let s = s.trim()`);
-shadow_same = "allow"                     # shadow_unrelated remains ENABLED
-default_numeric_fallback = "allow"        # suffixing every inferred literal is noise
-non_ascii_literal = "allow"               # the diacritic-folding tables are made of non-ASCII char literals
-pattern_type_mismatch = "allow"           # match ergonomics are idiomatic Rust
-single_char_lifetime_names = "allow"      # 'a is idiomatic
-print_stdout = "allow"                    # examples/ and the CLI print results to stdout
-print_stderr = "allow"                    # CLI diagnostics go to stderr
-integer_division = "allow"                # digit-splitting math is intended integer math;
+unused_trait_names = "allow" # `use Trait as _` churn without benefit here
+shadow_reuse = "allow" # idiomatic rebinding (`let s = s.trim()`);
+shadow_same = "allow" # shadow_unrelated remains ENABLED
+default_numeric_fallback = "allow" # suffixing every inferred literal is noise
+non_ascii_literal = "allow" # the diacritic-folding tables are made of non-ASCII char literals
+pattern_type_mismatch = "allow" # match ergonomics are idiomatic Rust
+single_char_lifetime_names = "allow" # 'a is idiomatic
+print_stdout = "allow" # examples/ and the CLI print results to stdout
+print_stderr = "allow" # CLI diagnostics go to stderr
+integer_division = "allow" # digit-splitting math is intended integer math;
 integer_division_remainder_used = "allow" # overflow concerns are covered by
 # arithmetic_side_effects, which stays enabled
-std_instead_of_core = "allow"  # std-first house style; wasm32-unknown-unknown ships std
+std_instead_of_core = "allow" # std-first house style; wasm32-unknown-unknown ships std
 std_instead_of_alloc = "allow" # same
 
 [workspace.metadata]
 changelog = "CHANGELOG.md"
-
 
 [profile.dev]
 debug = "line-tables-only"

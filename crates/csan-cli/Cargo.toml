@@ -3,9 +3,9 @@ name = "csan-cli"
 version.workspace = true
 authors.workspace = true
 categories = [
-    "command-line-utilities",
-    "command-line-interface",
-    "text-processing",
+  "command-line-utilities",
+  "command-line-interface",
+  "text-processing",
 ]
 documentation.workspace = true
 edition.workspace = true
