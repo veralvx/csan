@@ -96,14 +96,15 @@ attached to each
 package below:
 
 ```sh
-$ csan --cutter-sanborn --cutter-loc \
-    --forename Charles --surname Dickens --title "Oliver Twist"
+$ csan --forename Charles --surname Dickens --title "Oliver Twist"
 D548o
+$ csan --method cutter-loc --forename Charles --surname Dickens
 D535
 ```
 
-Select at least one method (`--cutter-sanborn`, `--cutter-loc`) and provide
-at least one non-blank input (`--forename`, `--surname`, `--title`).
+`--method` selects the method, `cutter-sanborn` (the default) or
+`cutter-loc`, and at least one non-blank input (`--forename`, `--surname`,
+`--title`) is required.
 `--prefix-len`/`--suffix-len` tune the Cutter-Sanborn output, `--max-len`
 the LoC digits, and `--json` emits the parts as a JSON object. Errors exit
 non-zero with a message on stderr.

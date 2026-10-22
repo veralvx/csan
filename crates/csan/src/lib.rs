@@ -7,33 +7,42 @@
 //! spawning processes.
 
 use clap::error::ErrorKind;
-use clap::{ArgGroup, Parser};
+use clap::{Parser, ValueEnum};
 use csan_core::{
     Attribution, CutterConfig, CutterGenerator, CutterLocMethod, CutterSanbornMethod, detailed_json,
 };
 use std::ffi::OsString;
 
+/// The Cutter method to generate a number with.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
+pub enum Method {
+    /// Cutter-Sanborn three-figure number
+    #[default]
+    CutterSanborn,
+    /// Library of Congress cutter number
+    CutterLoc,
+}
+
+impl Method {
+    /// The key of this method's object in `--json` output.
+    const fn json_key(self) -> &'static str {
+        match self {
+            Self::CutterSanborn => "cutter_sanborn",
+            Self::CutterLoc => "cutter_loc",
+        }
+    }
+}
+
 /// Generate Cutter call numbers for library cataloging.
 ///
-/// Provide at least one method flag (`--cutter-sanborn`, `--cutter-loc`)
-/// and at least one non-blank input (`--forename`, `--surname`,
-/// `--title`). With both method flags, the Cutter-Sanborn number is
-/// printed first, each on its own line.
+/// Provide at least one non-blank input (`--forename`, `--surname`,
+/// `--title`). `--method` selects the method (Cutter-Sanborn by default).
 #[derive(Debug, Parser)]
-#[command(name = "csan", version, about, group(
-    ArgGroup::new("method")
-        .required(true)
-        .multiple(true)
-        .args(["cutter_sanborn", "cutter_loc"])
-))]
+#[command(name = "csan", version, about)]
 pub struct Cli {
-    /// Generate a Cutter-Sanborn three-figure number
-    #[arg(long)]
-    pub cutter_sanborn: bool,
-
-    /// Generate a Library of Congress cutter number
-    #[arg(long)]
-    pub cutter_loc: bool,
+    /// The method to generate the number with
+    #[arg(long, value_enum, value_name = "METHOD", default_value_t = Method::default())]
+    pub method: Method,
 
     /// The author's given (first) name
     #[arg(long, value_name = "NAME")]
@@ -69,17 +78,9 @@ pub struct Cli {
 /// Executes a parsed [`Cli`] invocation, returning the text to print.
 ///
 /// # Errors
-/// Returns a human-readable message when no method was selected (only
-/// possible for a hand-constructed [`Cli`]; `clap` enforces this at parse
-/// time), when no usable input was provided, or when Cutter generation
-/// fails (e.g. a name that normalizes to nothing).
+/// Returns a human-readable message when no usable input was provided, or
+/// when Cutter generation fails (e.g. a name that normalizes to nothing).
 pub fn run(cli: &Cli) -> Result<String, String> {
-    if !cli.cutter_sanborn && !cli.cutter_loc {
-        return Err(String::from(
-            "select at least one method: --cutter-sanborn or --cutter-loc",
-        ));
-    }
-
     let attribution = Attribution::from_parts(
         cli.forename.as_deref(),
         cli.surname.as_deref(),
@@ -95,40 +96,29 @@ pub fn run(cli: &Cli) -> Result<String, String> {
         max_len: cli.max_len,
     };
 
-    let sanborn = cli
-        .cutter_sanborn
-        .then(|| CutterSanbornMethod::generate(&attribution, config))
-        .transpose()
-        .map_err(|e| format!("cutter-sanborn generation failed: {e}"))?;
-    let loc = cli
-        .cutter_loc
-        .then(|| CutterLocMethod::generate(&attribution, config))
-        .transpose()
-        .map_err(|e| format!("cutter-loc generation failed: {e}"))?;
+    let (formatted, detailed) = match cli.method {
+        Method::CutterSanborn => {
+            let cutter = CutterSanbornMethod::generate(&attribution, config)
+                .map_err(|e| format!("cutter-sanborn generation failed: {e}"))?;
+            (cutter.to_string(), detailed_json(&cutter))
+        }
+        Method::CutterLoc => {
+            let cutter = CutterLocMethod::generate(&attribution, config)
+                .map_err(|e| format!("cutter-loc generation failed: {e}"))?;
+            (cutter.to_string(), detailed_json(&cutter))
+        }
+    };
 
     if cli.json {
         let mut root = serde_json::Map::new();
-        if let Some(cutter) = &sanborn {
-            root.insert(
-                "cutter_sanborn".to_owned(),
-                detailed_json(cutter).map_err(|e| e.to_string())?,
-            );
-        }
-        if let Some(cutter) = &loc {
-            root.insert(
-                "cutter_loc".to_owned(),
-                detailed_json(cutter).map_err(|e| e.to_string())?,
-            );
-        }
+        root.insert(
+            cli.method.json_key().to_owned(),
+            detailed.map_err(|e| e.to_string())?,
+        );
         serde_json::to_string_pretty(&serde_json::Value::Object(root))
             .map_err(|e| format!("failed to serialize JSON output: {e}"))
     } else {
-        let lines: Vec<String> = sanborn
-            .iter()
-            .map(ToString::to_string)
-            .chain(loc.iter().map(ToString::to_string))
-            .collect();
-        Ok(lines.join("\n"))
+        Ok(formatted)
     }
 }
 
@@ -185,15 +175,21 @@ mod tests {
     #[test]
     fn run_from_args_maps_outcomes_to_exit_codes() {
         assert_eq!(
-            run_from_args(["csan", "--cutter-loc", "--surname", "Carter"]),
+            run_from_args(["csan", "--method", "cutter-loc", "--surname", "Carter"]),
             0
         );
+        assert_eq!(run_from_args(["csan", "--surname", "Carter"]), 0);
         assert_eq!(run_from_args(["csan", "--help"]), 0);
         assert_eq!(run_from_args(["csan", "--version"]), 0);
         assert_eq!(run_from_args(["csan", "--no-such-flag"]), 2);
-        assert_eq!(run_from_args(["csan"]), 2, "missing method group");
         assert_eq!(
-            run_from_args(["csan", "--cutter-loc", "--surname", "  "]),
+            run_from_args(["csan", "--method", "dewey", "--surname", "Carter"]),
+            2,
+            "unknown method is a usage error"
+        );
+        assert_eq!(run_from_args(["csan"]), 1, "no input is a runtime failure");
+        assert_eq!(
+            run_from_args(["csan", "--method", "cutter-loc", "--surname", "  "]),
             1,
             "blank input is a runtime failure"
         );
@@ -205,34 +201,58 @@ mod tests {
     }
 
     #[test]
-    fn run_rejects_a_methodless_cli() {
-        // `clap` enforces the method group at parse time; `run` guards the
-        // programmatic path too.
-        let cli = Cli {
-            cutter_sanborn: false,
-            cutter_loc: false,
-            forename: None,
-            surname: Some("Dickens".to_owned()),
-            title: None,
-            prefix_len: 1,
-            suffix_len: 1,
-            max_len: 3,
-            json: false,
-        };
-        assert!(run(&cli).unwrap_err().contains("--cutter-sanborn"));
+    fn method_defaults_to_cutter_sanborn() {
+        let cli = parse(&["csan", "--surname", "Dickens"]).unwrap();
+        assert_eq!(cli.method, Method::CutterSanborn);
+
+        let explicit = parse(&["csan", "--method", "cutter-sanborn", "--surname", "Dickens"]);
+        assert_eq!(run(&cli).unwrap(), run(&explicit.unwrap()).unwrap());
     }
 
     #[test]
-    fn a_method_flag_is_required() {
-        let err = parse(&["csan", "--surname", "Dickens"]).unwrap_err();
-        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+    fn method_accepts_both_value_forms() {
+        for args in [
+            ["csan", "--method", "cutter-loc"],
+            ["csan", "--method=cutter-loc", "--json"],
+        ] {
+            assert_eq!(parse(&args).unwrap().method, Method::CutterLoc);
+        }
+        assert_eq!(
+            parse(&["csan", "--method=cutter-sanborn"]).unwrap().method,
+            Method::CutterSanborn
+        );
     }
 
     #[test]
-    fn single_method_prints_bare_value() {
+    fn method_rejects_unknown_and_repeated_values() {
+        let unknown = parse(&["csan", "--method", "loc"]).unwrap_err();
+        assert_eq!(unknown.kind(), ErrorKind::InvalidValue);
+
+        let repeated = parse(&[
+            "csan",
+            "--method",
+            "cutter-sanborn",
+            "--method",
+            "cutter-loc",
+        ])
+        .unwrap_err();
+        assert_eq!(repeated.kind(), ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn the_former_method_flags_are_gone() {
+        for flag in ["--cutter-sanborn", "--cutter-loc"] {
+            let err = parse(&["csan", flag, "--surname", "Dickens"]).unwrap_err();
+            assert_eq!(err.kind(), ErrorKind::UnknownArgument, "{flag}");
+        }
+    }
+
+    #[test]
+    fn cutter_sanborn_prints_bare_value() {
         let cli = parse(&[
             "csan",
-            "--cutter-sanborn",
+            "--method",
+            "cutter-sanborn",
             "--forename",
             "Charles",
             "--surname",
@@ -245,23 +265,17 @@ mod tests {
     }
 
     #[test]
-    fn both_methods_print_sanborn_then_loc() {
-        let cli = parse(&[
-            "csan",
-            "--cutter-sanborn",
-            "--cutter-loc",
-            "--surname",
-            "Carter",
-        ])
-        .unwrap();
-        assert_eq!(run(&cli).unwrap(), "C323\nC378");
+    fn each_method_prints_its_own_number() {
+        let sanborn = parse(&["csan", "--surname", "Carter"]).unwrap();
+        assert_eq!(run(&sanborn).unwrap(), "C323");
+        let loc = parse(&["csan", "--method", "cutter-loc", "--surname", "Carter"]).unwrap();
+        assert_eq!(run(&loc).unwrap(), "C378");
     }
 
     #[test]
     fn config_flags_are_honored() {
         let cli = parse(&[
             "csan",
-            "--cutter-sanborn",
             "--forename",
             "Charles",
             "--surname",
@@ -278,7 +292,8 @@ mod tests {
 
         let loc = parse(&[
             "csan",
-            "--cutter-loc",
+            "--method",
+            "cutter-loc",
             "--surname",
             "Macdonald",
             "--max-len",
@@ -290,37 +305,56 @@ mod tests {
 
     #[test]
     fn title_only_input_works() {
-        let cli = parse(&["csan", "--cutter-loc", "--title", "100 best recipes"]).unwrap();
+        let cli = parse(&[
+            "csan",
+            "--method",
+            "cutter-loc",
+            "--title",
+            "100 best recipes",
+        ])
+        .unwrap();
         assert_eq!(run(&cli).unwrap(), "A153");
     }
 
     #[test]
     fn blank_inputs_error_with_guidance() {
-        let cli = parse(&["csan", "--cutter-loc", "--surname", "   "]).unwrap();
+        let cli = parse(&["csan", "--method", "cutter-loc", "--surname", "   "]).unwrap();
         let err = run(&cli).unwrap_err();
         assert!(err.contains("--surname"), "unhelpful message: {err}");
     }
 
     #[test]
     fn json_output_carries_parts_and_formatted() {
-        let cli = parse(&[
-            "csan",
-            "--cutter-sanborn",
-            "--cutter-loc",
-            "--json",
+        let dickens = [
             "--forename",
             "Charles",
             "--surname",
             "Dickens",
             "--title",
             "Oliver Twist",
-        ])
-        .unwrap();
-        let value: serde_json::Value = serde_json::from_str(&run(&cli).unwrap()).unwrap();
-        assert_eq!(value["cutter_sanborn"]["formatted"], "D548o");
-        assert_eq!(value["cutter_sanborn"]["numeric"], 548);
-        assert_eq!(value["cutter_sanborn"]["alpha_suffix"], "o");
-        assert_eq!(value["cutter_loc"]["formatted"], "D535");
-        assert_eq!(value["cutter_loc"]["alpha_prefix"], "D");
+        ];
+
+        let sanborn = parse(&[&["csan", "--json"][..], &dickens].concat()).unwrap();
+        let sanborn_json: serde_json::Value =
+            serde_json::from_str(&run(&sanborn).unwrap()).unwrap();
+        assert_eq!(sanborn_json["cutter_sanborn"]["formatted"], "D548o");
+        assert_eq!(sanborn_json["cutter_sanborn"]["numeric"], 548);
+        assert_eq!(sanborn_json["cutter_sanborn"]["alpha_suffix"], "o");
+        assert_eq!(
+            sanborn_json.as_object().unwrap().len(),
+            1,
+            "only the chosen method"
+        );
+
+        let loc =
+            parse(&[&["csan", "--json", "--method", "cutter-loc"][..], &dickens].concat()).unwrap();
+        let loc_json: serde_json::Value = serde_json::from_str(&run(&loc).unwrap()).unwrap();
+        assert_eq!(loc_json["cutter_loc"]["formatted"], "D535");
+        assert_eq!(loc_json["cutter_loc"]["alpha_prefix"], "D");
+        assert_eq!(
+            loc_json.as_object().unwrap().len(),
+            1,
+            "only the chosen method"
+        );
     }
 }

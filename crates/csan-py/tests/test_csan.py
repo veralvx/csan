@@ -145,27 +145,37 @@ def test_untransliterable_name_raises_value_error():
 # --------------------------------------------------------------------------
 def test_run_cli_success_returns_zero(capfd):
     code = csan.run_cli(
-        ["--cutter-sanborn", "--surname", "Dickens", "--title", "Oliver Twist"]
+        ["--method", "cutter-sanborn", "--surname", "Dickens", "--title", "Oliver Twist"]
     )
     assert code == 0
     assert capfd.readouterr().out.strip() == "D548o"
 
 
-def test_run_cli_both_methods_prints_two_lines(capfd):
-    code = csan.run_cli(["--cutter-sanborn", "--cutter-loc", "--surname", "Carter"])
-    assert code == 0
-    assert capfd.readouterr().out.strip().splitlines() == ["C323", "C378"]
+def test_run_cli_method_defaults_to_cutter_sanborn(capfd):
+    assert csan.run_cli(["--surname", "Carter"]) == 0
+    assert capfd.readouterr().out.strip() == "C323"
+
+
+def test_run_cli_method_cutter_loc(capfd):
+    assert csan.run_cli(["--method=cutter-loc", "--surname", "Carter"]) == 0
+    assert capfd.readouterr().out.strip() == "C378"
 
 
 def test_run_cli_runtime_error_returns_one(capfd):
-    code = csan.run_cli(["--cutter-loc", "--surname", "   "])
+    code = csan.run_cli(["--method", "cutter-loc", "--surname", "   "])
     assert code == 1
     assert "surname" in capfd.readouterr().err
 
 
-def test_run_cli_usage_error_returns_two():
-    # No method flag is a clap usage error.
-    assert csan.run_cli(["--surname", "Dickens"]) == 2
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--method", "dewey", "--surname", "Dickens"],  # unknown method
+        ["--cutter-sanborn", "--surname", "Dickens"],  # removed flag
+    ],
+)
+def test_run_cli_usage_error_returns_two(args):
+    assert csan.run_cli(args) == 2
 
 
 def test_run_cli_help_returns_zero():
@@ -197,7 +207,7 @@ def test_public_api_is_exported():
 
 def test_main_exits_with_run_cli_code(monkeypatch):
     # main() wraps run_cli and raises SystemExit with its return code.
-    monkeypatch.setattr(sys, "argv", ["csan", "--surname", "Dickens"])
+    monkeypatch.setattr(sys, "argv", ["csan", "--method", "dewey"])
     with pytest.raises(SystemExit) as excinfo:
         csan.main()
     assert excinfo.value.code == 2
@@ -213,7 +223,6 @@ def test_console_script_is_installed():
     result = subprocess.run(
         [
             str(script),
-            "--cutter-sanborn",
             "--surname",
             "Dickens",
             "--title",

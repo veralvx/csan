@@ -31,8 +31,8 @@ Unusable input raises `ValueError`.
 The console script is the same interface as the standalone Rust binary:
 
 ```sh
-csan --cutter-sanborn --cutter-loc \
-  --forename Charles --surname Dickens --title "Oliver Twist"
+csan --forename Charles --surname Dickens --title "Oliver Twist"   # D548o
+csan --method cutter-loc --surname Carter                         # C378
 ```
 
 ## Building from source

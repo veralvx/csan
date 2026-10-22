@@ -206,7 +206,8 @@ jobs:
         shell: bash
         run: |
           python -m pip install --no-index --find-links dist csan
-          test "$(csan --cutter-sanborn --surname Dickens --title "Oliver Twist")" = "D548o"
+          test "$(csan --surname Dickens --title "Oliver Twist")" = "D548o"
+          test "$(csan --method cutter-loc --surname Carter)" = "C378"
           python -c 'import csan; assert csan.cutter_loc(surname="Carter") == "C378"'
 
       - name: Checksums
