@@ -18,6 +18,13 @@ To build and test locally, you will need the following tools:
   (`crates/csan-py`) and `wasm-pack` plus Node for the npm package
   (`crates/csan-web`).
 
+With [Nix](https://nixos.org), `nix develop` provides all of the above, at
+the versions `flake.lock` pins: the pinned toolchain (with the wasm target),
+just, dprint, cocogitto, git-cliff, cargo-audit, maturin, wasm-pack, Node,
+binaryen, and Typst. `nix develop .#miri` is a nightly shell for Miri, which
+`just miri` uses on its own inside a Nix shell. `nix flake check` builds
+what CI's `nix.yml` checks, and `nix fmt` formats the Nix files.
+
 ## Setup
 
 1. Fork this repository and create your branch from `main`.

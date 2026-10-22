@@ -94,7 +94,16 @@ with `cargo install csan`, the shell/PowerShell installers or archives
 attached to each
 [GitHub release](https://github.com/veralvx/csan/releases), the Python
 package below, or run it without installing through npm
-(`npx @veralvx/csan --help`):
+(`npx @veralvx/csan --help`). Or with [Nix](https://nixos.org) (Linux and
+aarch64 macOS), built with the toolchain `rust-toolchain.toml` pins:
+
+```sh
+nix run github:veralvx/csan -- --help
+nix build github:veralvx/csan     # ./result/bin/csan
+nix profile install github:veralvx/csan
+```
+
+Usage:
 
 ```sh
 $ csan --forename Charles --surname Dickens --title "Oliver Twist"
@@ -242,6 +251,11 @@ enabled), `cargo fmt --check`, `cargo doc -D warnings`, `cargo audit`,
 Typst plugin, the Python wheel, and the npm package. Lint policy —
 including the reason for every allowed lint — lives in the workspace
 `Cargo.toml` and `clippy.toml`.
+
+With Nix, `nix develop` provides the toolchain and every tool above (see
+`flake.nix`), and `nix flake check` builds the flake's checks (clippy,
+rustfmt, rustdoc, the binary and its tests, both dev shells), as CI's
+`nix.yml` does on x86_64 and aarch64 Linux and aarch64 macOS.
 
 ## License
 

@@ -1,0 +1,63 @@
+name: Nix
+
+# The flake's formatter (`nix fmt`), then its checks (flake.nix): clippy,
+# rustfmt, rustdoc, the csan binary with its tests, the format and both dev
+# shells, built in the sandbox with the toolchain rust-toolchain.toml pins,
+# on x86_64 and aarch64 Linux and aarch64 macOS -- the flake's systems, so
+# each is built natively and none is first built by a user.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.rs"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "clippy.toml"
+      - "rust-toolchain.toml"
+      - "flake.nix"
+      - "flake.lock"
+      - ".github/workflows/nix.yml"
+  # every pull request, whatever it touches: a required check that never
+  # reports blocks the merge, and these are the checks Dependabot's
+  # flake.lock updates auto-merge on
+  pull_request:
+  workflow_dispatch:
+
+# a pull request's newest run cancels its older ones; any other run, a
+# group of its own: every commit on main checked
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  flake-check:
+    name: nix flake check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # x86_64-linux, aarch64-linux, aarch64-darwin
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Nix
+        # flakes on, and the job's token for GitHub fetches
+        uses: cachix/install-nix-action@v31
+
+      # nixfmt's verdict as `nix fmt` gives it: --ci formats, and fails if
+      # that changed a file, as the flake's `format` check fails
+      - name: nix fmt (check)
+        run: nix fmt -- --ci
+
+      - name: nix flake check
+        run: nix flake check --print-build-logs
+
+      # what a user runs: the binary from the flake, by its main program
+      - name: nix run
+        run: test "$(nix run . -- --surname Dickens --title 'Oliver Twist')" = "D548o"

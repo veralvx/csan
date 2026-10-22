@@ -1,4 +1,6 @@
 /target
+# nix build
+/result
 **/target/
 .drafts/
 .vscode
