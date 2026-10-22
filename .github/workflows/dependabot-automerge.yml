@@ -24,7 +24,7 @@ jobs:
     # Ref: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/automating-dependabot-with-github-actions
     if: >-
       github.event.pull_request.user.login == 'dependabot[bot]' &&
-      github.repository == 'veralvx/imi'
+      github.repository == 'veralvx/csan'
 
     steps:
       - name: Fetch Dependabot metadata

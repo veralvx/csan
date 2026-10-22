@@ -12,6 +12,8 @@ on:
       - "crates/csan-py/python/**"
       - "crates/csan-py/tests/**"
       - "crates/csan-web/examples/**"
+      - "justfile"
+      - "rust-toolchain.toml"
       - ".github/workflows/rust-ci.yml"
   pull_request:
     paths:
@@ -24,6 +26,8 @@ on:
       - "crates/csan-py/python/**"
       - "crates/csan-py/tests/**"
       - "crates/csan-web/examples/**"
+      - "justfile"
+      - "rust-toolchain.toml"
       - ".github/workflows/rust-ci.yml"
 
 concurrency:
@@ -274,26 +278,15 @@ jobs:
         with:
           key: npm-package
 
-      - name: Install wasm-pack
+      - name: Install wasm-pack and just
         uses: taiki-e/install-action@v2
         with:
-          tool: wasm-pack
+          tool: wasm-pack,just
 
       - name: Run the wasm-bindgen test suite
-        run: wasm-pack test --node crates/csan-web
+        run: just web-test
 
-      - name: Build the Node package
-        run: wasm-pack build crates/csan-web --release --target nodejs --out-dir pkg-node
-
-      - name: Node smoke tests
-        run: |
-          node crates/csan-web/examples/node-demo.cjs
-          node -e '
-            const { cutterSanborn, cutterLoc } =
-              require("./crates/csan-web/pkg-node/csan_web.js");
-            const assert = require("node:assert");
-            assert.strictEqual(cutterSanborn({ givenName: "Charles",
-              familyName: "Dickens", title: "Oliver Twist" }), "D548o");
-            assert.strictEqual(cutterLoc({ title: "100 best recipes" }), "A153");
-            console.log("node smoke test passed");
-          '
+      # Builds the Node package, then runs examples/node-demo.cjs and
+      # examples/smoke-test.cjs against it (the release job packs the same).
+      - name: Build the Node package and run the smoke tests
+        run: just npm-test
