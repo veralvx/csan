@@ -7,6 +7,8 @@ name: Dependabot Auto-Merge
 # 4. Settings → Branches → Branch protection rule on main:
 #      - Require a pull request before merging
 #      - Require status checks to pass before merging (select your real CI jobs)
+#        — including the three "nix flake check (...)" jobs: flake.lock
+#        updates auto-merge on nothing else
 
 on:
   pull_request:
@@ -35,12 +37,21 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Enable auto-merge for patch and minor updates
+      - name: Enable auto-merge for patch and minor updates, and flake.lock updates
         # update-type only emits version-update:semver-{patch,minor,major}.
         # There is NO "security:" prefix; security updates carry the same
         # semver labels.  To gate on security status, enable alert-lookup
         # (requires a PAT) and check steps.metadata.outputs.alert-state.
+        #
+        # A flake input moves from commit to commit, which has no semver:
+        # unless Dependabot states an update-type, fetch-metadata (v3.1.0,
+        # calculateUpdateType) reads two hashes as differing in their first
+        # "part" and reports semver-major, which the list refuses. So the
+        # nix ecosystem — read from the branch, dependabot/nix/... — is
+        # matched by itself; what gates its merge is nix.yml's checks,
+        # required on main, which build and test against the new lock.
         if: >-
+          steps.metadata.outputs.package-ecosystem == 'nix' ||
           contains(
             fromJSON('["version-update:semver-patch", "version-update:semver-minor"]'),
             steps.metadata.outputs.update-type

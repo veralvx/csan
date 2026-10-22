@@ -51,3 +51,29 @@ updates:
           - "patch"
     cooldown:
       default-days: 3
+
+  # ─── Nix (flake.lock) ───────────────────────────────────────────
+  # nixpkgs and rust-overlay move by commit, not by version: one grouped
+  # pull request a week, auto-merged once nix.yml's checks pass
+  # (dependabot-automerge.yml). The 3-day cooldown keeps it off a
+  # nixos-unstable commit younger than that. No `labels`: Dependabot's
+  # defaults for this ecosystem are `dependencies` and `nix`, and it
+  # creates those itself, where a configured label the repository lacks
+  # is dropped.
+  - package-ecosystem: "nix"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "08:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      nix-dependencies:
+        patterns:
+          - "*"
+    cooldown:
+      default-days: 3
