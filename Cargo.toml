@@ -9,14 +9,14 @@ authors = ["VERALVX <veralvx@veralvx.com>"]
 # list at https://crates.io/category_slugs
 categories = ["text-processing"]
 edition = "2024"
-# Verified by the MSRV job in rust-ci.yml; keep in sync with rust-toolchain.toml.
-rust-version = "1.97"
 # crates.io allows a maximum of 5 keywords; each must start with an
 # alphanumeric character and only contain letters, numbers, _, - or +.
 keywords = ["cutter-sanborn", "cataloging", "call-number", "typst", "library"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/veralvx/csan"
+# Verified by the MSRV job in rust-ci.yml; keep in sync with rust-toolchain.toml.
+rust-version = "1.97"
 
 [workspace.dependencies]
 ciborium = "0.2.2"

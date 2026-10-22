@@ -9,11 +9,11 @@ categories = [
 ]
 documentation = "https://docs.rs/csan"
 edition.workspace = true
-rust-version.workspace = true
 keywords.workspace = true
 license.workspace = true
 readme.workspace = true
 repository.workspace = true
+rust-version.workspace = true
 description = "Command-line Cutter call number generator (Cutter-Sanborn and Library of Congress)"
 
 [lints]

@@ -3,13 +3,13 @@ name = "csan-web"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-rust-version.workspace = true
 # wasm-pack copies these into the npm package.json (the workspace list is
 # Rust/Typst-oriented).
 keywords = ["cutter", "cutter-sanborn", "cataloging", "call-number", "library"]
 license.workspace = true
 publish = false
 repository.workspace = true
+rust-version.workspace = true
 description = "Cutter call number generation for JavaScript via WebAssembly"
 
 [lib]

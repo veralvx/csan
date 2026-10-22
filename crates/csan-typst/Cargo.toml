@@ -3,10 +3,10 @@ name = "csan-typst"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
-rust-version.workspace = true
 license.workspace = true
 publish = false
 repository.workspace = true
+rust-version.workspace = true
 description = "Typst WASM plugin exposing csan's Cutter call number generation"
 
 [lib]
