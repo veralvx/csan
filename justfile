@@ -107,6 +107,16 @@ npm-build-node:
 npm-test: npm-build-node
   node {{ WEB_CRATE_DIR }}/examples/node-demo.cjs
   node {{ WEB_CRATE_DIR }}/examples/smoke-test.cjs
+  # The generated TypeScript declarations (fetches the TypeScript compiler).
+  npx --yes --package typescript@5 -- tsc --noEmit --strict \
+    --module nodenext --moduleResolution nodenext --target es2022 \
+    {{ WEB_CRATE_DIR }}/examples/types-check.ts
+
+[doc("Check the npm package's csan command prints byte for byte what the native binary prints on a terminal, colors included (Linux; requires `script` from util-linux)")]
+[group("Bindings")]
+npm-tty-parity: npm-build-node
+  cargo build --locked -p csan
+  {{ WEB_CRATE_DIR }}/examples/tty-parity.sh target/debug/csan {{ WEB_CRATE_DIR }}/pkg-node/bin/csan.cjs
 
 [doc("Pack the tested Node npm package into a tarball for a release (requires wasm-pack, node, npm)")]
 [group("Bindings")]

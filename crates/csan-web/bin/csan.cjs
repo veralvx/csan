@@ -11,7 +11,10 @@
 const { runCli } = require("../csan_web.js");
 
 // Whether the native binary would style text on `stream`: clap's terminal
-// detection (anstream's `AutoStream` choice), applied per stream.
+// detection (anstream 1.0's `AutoStream` choice with anstyle-query 1.1),
+// applied per stream. `just npm-tty-parity` checks the two still agree.
+// Node's `isTTY` does not recognize msys/mintty ptys (Git Bash), where the
+// native binary styles but this command does not.
 function colorFor(stream) {
   const env = process.env;
   const nonEmpty = (name) => (env[name] ?? "") !== "";
@@ -43,7 +46,9 @@ const { code, stdout, stderr } = runCli(process.argv.slice(2), {
   stdout: colorFor(process.stdout),
   stderr: colorFor(process.stderr),
 });
-// Node exits with `process.exitCode` once the writes have flushed.
+// Node exits with `process.exitCode` once the writes have flushed. Empty
+// text is not written: the native binary does not touch a stream it has
+// nothing for, so a broken but unused stream must not change the outcome.
 process.exitCode = code;
-process.stdout.write(stdout);
-process.stderr.write(stderr);
+if (stdout !== "") process.stdout.write(stdout);
+if (stderr !== "") process.stderr.write(stderr);

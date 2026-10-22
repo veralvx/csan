@@ -45,8 +45,11 @@ npx @veralvx/csan --help
 
 Output is styled exactly when the native binary would style it (on a
 color-capable terminal, honoring `NO_COLOR`, `CLICOLOR`, and
-`CLICOLOR_FORCE`), and write failures follow the same rules: a closed pipe
-is not an error, and any other failure exits 1.
+`CLICOLOR_FORCE`; Node does not detect Git Bash/mintty terminals, so output
+there is plain). Write failures follow the same rules: a closed pipe is not
+an error, and any other failure prints `error: failed to write output: ...`
+and exits 1 (the detail is the platform's error description, worded by Rust
+or Node respectively).
 
 `runCli(args, styling?)` exposes the same interface to code: it takes the
 arguments (without the program name) and returns `{ code, stdout, stderr }`
@@ -74,23 +77,30 @@ carries the same tarball, `veralvx-csan-<version>.tgz`.
 The package is produced with [`wasm-pack`](https://rustwasm.github.io/wasm-pack/),
 which compiles the crate, runs `wasm-bindgen`, and generates a
 conventional npm package (`package.json` with `name`, `types`, `files`,
-`sideEffects`, and the license/repository metadata from `Cargo.toml`):
-
-Build the published package (the Node build) with the `just` recipes from
-the repository root; besides `wasm-pack`, they optimize for size, add the
-`csan` command, and set the npm name:
+`sideEffects`, and the license/repository metadata from `Cargo.toml`).
+Build the published package (the Node build) with the `just` recipes, from
+the repository root; besides running `wasm-pack`, they optimize for size,
+add the `csan` command, and set the npm name:
 
 ```sh
 rustup target add wasm32-unknown-unknown
 cargo install wasm-pack        # or: npm i -g wasm-pack
 
-just npm-build-node   # the npm package, in ./pkg-node
-just npm-test         # ... then run the demo and smoke tests against it
+just npm-build-node   # the npm package, in crates/csan-web/pkg-node
+just npm-test         # ... then run the demo, smoke, and type tests
+just npm-tty-parity   # ... compare its command with the native binary
 just npm-pack         # ... then pack the release tarball
 
-# Other wasm-pack targets (library only, without the `csan` command):
-just npm-build                                        # bundlers, in ./pkg
-wasm-pack build --release --target web --out-dir pkg-web   # browsers
+# Other targets (no `csan` command, though `runCli` is still compiled in):
+just npm-build        # bundlers, in crates/csan-web/pkg
+```
+
+For a plain-browser ES module, run in this directory (`opt-level` keeps
+the module as small as the npm build):
+
+```sh
+wasm-pack build --release --target web --out-dir pkg-web \
+  -- --config 'profile.release.opt-level="z"'
 ```
 
 If you run `wasm-bindgen` by hand instead, its CLI version must exactly
@@ -103,8 +113,7 @@ match the `wasm-bindgen` dependency version in `Cargo.lock`.
 # examples/node-demo.cjs and examples/smoke-test.cjs against it.
 just npm-test
 
-# The browser demo, from this directory:
-wasm-pack build --release --target web --out-dir pkg-web
+# The browser demo, from this directory (build pkg-web as above):
 python3 -m http.server   # then open http://localhost:8000/examples/web/
 ```
 

@@ -289,6 +289,12 @@ jobs:
         run: just web-test
 
       # Builds the Node package, then runs examples/node-demo.cjs and
-      # examples/smoke-test.cjs against it (the release job packs the same).
+      # examples/smoke-test.cjs against it and type-checks its declarations
+      # (the release job packs the same).
       - name: Build the Node package and run the smoke tests
         run: just npm-test
+
+      # The package's `csan` command against the native binary on a
+      # terminal (pseudo-terminal via util-linux `script`), colors included.
+      - name: Terminal parity with the native binary
+        run: just npm-tty-parity

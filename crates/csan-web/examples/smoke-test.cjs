@@ -114,9 +114,24 @@ if (fs.existsSync("/dev/full")) {
     env: plainEnv,
     stdio: ["ignore", full, "pipe"],
   });
-  fs.closeSync(full);
   assert.equal(run.status, 1);
   assert.match(run.stderr, /^error: failed to write output:/);
+
+  // A broken stream the run does not use changes nothing.
+  run = spawnSync(process.execPath, [bin, "--surname", "Carter"], {
+    encoding: "utf8",
+    env: plainEnv,
+    stdio: ["ignore", "pipe", full],
+  });
+  assert.equal(run.status, 0);
+  assert.equal(run.stdout, "C323\n");
+  run = spawnSync(process.execPath, [bin, "--method", "dewey"], {
+    encoding: "utf8",
+    env: plainEnv,
+    stdio: ["ignore", full, "pipe"],
+  });
+  assert.equal(run.status, 2, "a usage error still exits 2");
+  fs.closeSync(full);
 }
 
 // A reader that goes away (`csan --help | head -1`) is not an error: the
@@ -130,6 +145,11 @@ const closedPipe = new Promise((resolve) => {
   let stderrText = "";
   child.stderr.on("data", (chunk) => (stderrText += chunk));
   child.on("close", (status) => resolve({ status, stderrText }));
+  // A hung child fails the test instead of hanging it.
+  setTimeout(() => {
+    child.kill();
+    assert.fail("closed-pipe case timed out");
+  }, 30_000).unref();
 });
 
 closedPipe.then(({ status, stderrText }) => {

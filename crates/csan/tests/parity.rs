@@ -12,7 +12,6 @@ use {clap as _, csan_core as _, serde_json as _};
 #[cfg(test)]
 mod tests {
     use csan::{Styling, execute};
-    use std::fs::OpenOptions;
     use std::io::Read;
     use std::iter;
     use std::process::{Command, Stdio};
@@ -118,6 +117,8 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[cfg_attr(miri, ignore = "spawns processes")]
     fn an_unwritable_stdout_is_reported_and_exits_one() {
+        use std::fs::OpenOptions;
+
         let full = OpenOptions::new().write(true).open("/dev/full").unwrap();
         let output = native()
             .args(["--surname", "Carter"])
