@@ -48,5 +48,9 @@ assert.throws(
 );
 assert.throws(() => cutterLoc({ surname: "Carter", prefixLen: 2 }), /prefixLen/);
 assert.throws(() => cutterLoc("Carter"), /options must be an object/);
+assert.throws(
+  () => cutterLoc({ surname: "Carter", maxLen: 2.5 }),
+  (e) => e.message.startsWith("invalid type"),
+);
 
 console.log("csan-web node smoke test passed");

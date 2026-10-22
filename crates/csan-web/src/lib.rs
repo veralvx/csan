@@ -206,7 +206,12 @@ fn parse_options<T: Default + for<'de> Deserialize<'de>>(options: &JsValue) -> R
     }
     serde_wasm_bindgen::from_value::<AllKeys<T>>(options.clone())
         .map(|AllKeys(parsed)| parsed)
-        .map_err(|e| JsError::new(&e.to_string()))
+        .map_err(|e| {
+            // The error renders as a JS `Error`'s `toString()`; drop its
+            // "Error: " prefix so the thrown message is not doubled.
+            let message = e.to_string();
+            JsError::new(message.strip_prefix("Error: ").unwrap_or(&message))
+        })
 }
 
 /// Serializes a value into a plain JS object.
