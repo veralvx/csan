@@ -16,6 +16,7 @@ It implements two methods:
 - **Cutter-Sanborn three-figure:** a lookup against the bundled
   Cutter-Sanborn table (12,000+ entries), with an optional call number
   prefix and a lowercase work mark derived from the title.
+  Its table comes from https://github.com/veralvx/cutter-sanborn-table
 - **Library of Congress:** the LoC character-branching rules
   ([Cutter table](https://www.loc.gov/aba/pcc/053/table.html),
   [CSM G 63](https://www.loc.gov/aba/publications/FreeCSM/G063.pdf)),
