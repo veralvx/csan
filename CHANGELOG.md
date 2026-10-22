@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-10-22
+
+### Added
+
+- Add the csan command to the npm package
+- Add a flake for the csan binary
+- Support cargo binstall
+
+### Changed
+
+- Merge pull request #9 from veralvx/claude/youthful-brahmagupta-6rcrfr
+- Select the method with --method, defaulting to cutter-sanborn
+- Say which npm token the publish fallback needs
+- Merge pull request #10 from veralvx/claude/youthful-brahmagupta-6rcrfr
+- Merge pull request #11 from veralvx/claude/youthful-brahmagupta-6rcrfr
+- Update flake.lock weekly with Dependabot and auto-merge it
+- Merge pull request #12 from veralvx/claude/youthful-brahmagupta-6rcrfr
+- Merge pull request #16 from veralvx/claude/youthful-brahmagupta-6rcrfr
+- Rework the READMEs for their registry pages
+- Correct normalization, JSON and Python output in the READMEs
+- Wrap the npm README's require as dprint formats it
+- Merge pull request #17 from veralvx/claude/youthful-brahmagupta-6rcrfr
+- Remove version badges from README.md
+- Update dist to 0.33.1 and keep Dependabot off release.yml
+- Merge pull request #18 from veralvx/claude/youthful-brahmagupta-6rcrfr
+
+### Fixed
+
+- Update tokio to 1.54.1 (RUSTSEC-2026-0384)
+- Publish to npm and crates.io from the tag push
+- Match the native binary in the npm command's colors and edge cases
+- Optional options in the typings, unused-stream parity, tty check
+- Pin and separate the type check; widen the tty parity matrix
+
 ## [0.6.1] - 2026-10-22
 
 ### Changed
