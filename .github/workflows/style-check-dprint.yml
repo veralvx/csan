@@ -21,24 +21,9 @@ on:
       - "**/*.toml"
       - "**/Dockerfile"
       - ".github/workflows/style-check-dprint.yml"
+  # every pull request, whatever it touches: a required check that never
+  # reports blocks the merge (push keeps its path filter)
   pull_request:
-    paths:
-      - "**/*.md"
-      - "**/*.markdown"
-      - "**/*.yml"
-      - "**/*.yaml"
-      - "**/*.json"
-      - "**/*.jsonc"
-      - "**/*.js"
-      - "**/*.ts"
-      - "**/*.tsx"
-      - "**/*.jsx"
-      - "**/*.html"
-      - "**/*.css"
-      - "**/*.scss"
-      - "**/*.toml"
-      - "**/Dockerfile"
-      - ".github/workflows/style-check-dprint.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
