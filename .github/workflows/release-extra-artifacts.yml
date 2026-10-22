@@ -2,9 +2,11 @@
 # package, the Python wheels and sdist, and the Node npm package.
 #
 # Called by release.yml through dist's `global-artifacts-jobs`
-# (dist-workspace.toml), so it only runs for a release tag. Everything it
-# uploads under an `artifacts-*` name is attached to the GitHub Release by
-# dist's `host` job, which waits for this workflow to succeed.
+# (dist-workspace.toml) for a release tag. Everything it uploads under an
+# `artifacts-*` name is attached to the GitHub Release by dist's `host`
+# job, which waits for this workflow to succeed. Changes to this file also
+# run it standalone (without a dist plan, so no release is involved) to
+# check the build before it is needed for a release.
 name: Release extra artifacts
 
 on:
@@ -14,6 +16,12 @@ on:
         description: The dist plan manifest (JSON)
         required: true
         type: string
+  push:
+    paths:
+      - ".github/workflows/release-extra-artifacts.yml"
+  pull_request:
+    paths:
+      - ".github/workflows/release-extra-artifacts.yml"
 
 permissions:
   contents: read
@@ -23,7 +31,8 @@ env:
 
 jobs:
   # The release tag must match every manifest that carries the version;
-  # dist checks Cargo.toml, this checks the Typst package too.
+  # dist checks Cargo.toml, this checks the Typst package too. Without a
+  # plan (a standalone run) the Cargo and Typst versions must still agree.
   versions:
     name: Check release versions
     runs-on: ubuntu-latest
@@ -36,12 +45,16 @@ jobs:
         env:
           PLAN: ${{ inputs.plan }}
         run: |
-          tag="$(jq -r '.announcement_tag' <<<"$PLAN")"
-          version="${tag#v}"
           cargo_version="$(cargo metadata --no-deps --format-version 1 \
             | jq -r '.packages[] | select(.name == "csan") | .version')"
           typst_version="$(awk -F'"' '/^version[[:space:]]*=/ { print $2; exit }' \
             crates/csan-typst/pkg/typst.toml)"
+          if [ -n "$PLAN" ]; then
+            tag="$(jq -r '.announcement_tag' <<<"$PLAN")"
+          else
+            tag="v$cargo_version"
+          fi
+          version="${tag#v}"
           echo "tag=$tag cargo=$cargo_version typst=$typst_version"
           if [ "$cargo_version" != "$version" ] || [ "$typst_version" != "$version" ]; then
             echo "::error::release tag $tag does not match the manifests (Cargo.toml $cargo_version, typst.toml $typst_version)"
