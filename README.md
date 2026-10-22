@@ -28,8 +28,9 @@ It implements two methods:
 
 Input names are normalized first: whitespace and punctuation are stripped,
 diacritics and ligatures are folded to ASCII (`Čapek` → `Capek`, `Strauß` →
-`Strauss`), `Mc`/`M'` prefixes expand to `Mac`, and `St`/`Ste` expand to
-`Saint`/`Sainte`, matching the conventions of the underlying tables.
+`Strauss`), `Mc`/`M'` prefixes expand to `Mac`, and a surname of
+`St`/`Ste` (as in Saint Patrick) expands to `Saint`/`Sainte`, matching the
+conventions of the underlying tables.
 Anonymous works are cuttered by title.
 
 ## Install
@@ -51,14 +52,15 @@ Anonymous works are cuttered by title.
 csan --surname Dickens --title "Oliver Twist"            # D548o
 csan --method cutter-loc --surname Carter                # C378
 csan --method cutter-loc --title "100 best recipes"      # A153
-csan --surname Borges --json                             # B732, as a JSON object of its parts
+csan --surname Borges --json                             # {"cutter_sanborn": {"formatted": "B732", ...}}
 ```
 
 `--method` selects the method, `cutter-sanborn` (the default) or
 `cutter-loc`, and at least one non-blank input (`--forename`, `--surname`,
 `--title`) is required. `--prefix-len`/`--suffix-len` tune the
 Cutter-Sanborn output, `--max-len` the LoC digits, and `--json` emits the
-parts as a JSON object. Errors exit non-zero with a message on stderr.
+parts as a JSON object keyed by method (`cutter_sanborn` or
+`cutter_loc`). Errors exit non-zero with a message on stderr.
 
 With [Nix](https://nixos.org), the flake builds the binary with the
 toolchain that `rust-toolchain.toml` pins:
@@ -113,7 +115,7 @@ import csan
 
 csan.cutter_sanborn(surname="Dickens", title="Oliver Twist")  # 'D548o'
 csan.cutter_loc_detailed(surname="Carter")
-# {'alpha_prefix': 'C', 'numeric': 378, 'formatted': 'C378'}
+# {'alpha_prefix': 'C', 'formatted': 'C378', 'numeric': 378}
 ```
 
 See the [Python package README](https://github.com/veralvx/csan/blob/main/crates/csan-py/README.md)

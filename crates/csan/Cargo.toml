@@ -4,7 +4,6 @@ version.workspace = true
 authors.workspace = true
 categories = [
   "command-line-utilities",
-  "command-line-interface",
   "text-processing",
 ]
 documentation = "https://docs.rs/csan"

@@ -10,6 +10,10 @@ To build and test locally, you will need the following tools:
 - **Just:** A command runner for our project automation.
 - **Dprint:** Used for standardizing markdown and JSON formatting.
 - **Cocogitto:** Used to enforce Conventional Commits.
+- **cargo-audit and nightly Rust with Miri:** `just checks` also runs
+  `cargo audit` and `just miri` (`rustup toolchain install nightly
+  --component miri`).
+- **For releasing:** git-cliff and jq, which `just release` uses.
 - **Optional, for the Typst plugin:** the `wasm32-unknown-unknown` target
   (`rustup target add wasm32-unknown-unknown`), the `typst` CLI (0.14.2+)
   to run the plugin test documents, and `wasm-opt` (binaryen) if you want
@@ -84,7 +88,7 @@ just checks
 
 This runs the core CI gates: `cargo check`/`test`/`clippy -D warnings`
 (all targets, with the `cargo`, `pedantic`, and `restriction` clippy groups
-enabled), `cargo fmt --check`, `cargo doc -D warnings`, `cargo audit`,
+enabled), `cargo fmt --check`, `cargo doc -D warnings`, `cargo audit`, Miri,
 `dprint check`, and `cog check` for Conventional Commits. If `just checks`
 passes on your machine, your code likely passes on CI, which additionally
 builds and smoke-tests the Typst plugin, the Python wheel, and the npm
