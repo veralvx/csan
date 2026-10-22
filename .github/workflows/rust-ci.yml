@@ -16,21 +16,9 @@ on:
       - "justfile"
       - "rust-toolchain.toml"
       - ".github/workflows/rust-ci.yml"
+  # every pull request, whatever it touches: a required check that never
+  # reports blocks the merge (push keeps its path filter)
   pull_request:
-    paths:
-      - "**/*.rs"
-      - "**/*.typ"
-      - "**/Cargo.toml"
-      - "**/Cargo.lock"
-      - "crates/csan-typst/pkg/**"
-      - "crates/csan-py/pyproject.toml"
-      - "crates/csan-py/python/**"
-      - "crates/csan-py/tests/**"
-      - "crates/csan-web/examples/**"
-      - "crates/csan-web/bin/**"
-      - "justfile"
-      - "rust-toolchain.toml"
-      - ".github/workflows/rust-ci.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
