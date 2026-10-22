@@ -16,12 +16,12 @@ on:
         description: The dist plan manifest (JSON)
         required: true
         type: string
-  # Standalone runs for changes to the packaging inputs. Push is limited to
-  # main (pull requests run it before merging) and to branches: path filters
-  # are not evaluated for tag pushes, so a release tag would otherwise also
-  # start a duplicate build.
+  # Standalone runs for changes to the packaging inputs, like rust-ci.yml
+  # (pushes to any branch, and pull requests). Push is limited to branches:
+  # path filters are not evaluated for tag pushes, so a release tag would
+  # otherwise also start a duplicate build.
   push:
-    branches: [main]
+    branches: ["**"]
     paths:
       - ".github/workflows/release-extra-artifacts.yml"
       - "justfile"
