@@ -47,5 +47,6 @@ assert.throws(
   /givenName/,
 );
 assert.throws(() => cutterLoc({ surname: "Carter", prefixLen: 2 }), /prefixLen/);
+assert.throws(() => cutterLoc("Carter"), /options must be an object/);
 
 console.log("csan-web node smoke test passed");

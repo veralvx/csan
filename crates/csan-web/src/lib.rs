@@ -193,9 +193,16 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for AllKeys<T> {
 }
 
 /// Deserializes a JS options object, treating `undefined`/`null` as `{}`.
+///
+/// Only the object's own properties are read (inherited ones are not).
 fn parse_options<T: Default + for<'de> Deserialize<'de>>(options: &JsValue) -> Result<T, JsError> {
     if options.is_undefined() || options.is_null() {
         return Ok(T::default());
+    }
+    // The map path would otherwise fail on a primitive with an opaque
+    // `Reflect.get` TypeError.
+    if !options.is_object() {
+        return Err(JsError::new("options must be an object"));
     }
     serde_wasm_bindgen::from_value::<AllKeys<T>>(options.clone())
         .map(|AllKeys(parsed)| parsed)
@@ -532,6 +539,12 @@ mod tests {
         fn missing_input_throws() {
             assert!(cutter_sanborn(&JsValue::UNDEFINED).is_err());
             assert!(cutter_loc(&opts(&Options::default())).is_err());
+        }
+
+        #[wasm_bindgen_test]
+        fn non_object_options_throw() {
+            assert!(cutter_loc(&JsValue::from_str("Carter")).is_err());
+            assert!(cutter_sanborn(&JsValue::from_f64(1.0)).is_err());
         }
 
         #[wasm_bindgen_test]
