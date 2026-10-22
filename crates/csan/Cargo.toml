@@ -9,6 +9,7 @@ categories = [
 ]
 documentation = "https://docs.rs/csan"
 edition.workspace = true
+rust-version.workspace = true
 keywords.workspace = true
 license.workspace = true
 readme.workspace = true

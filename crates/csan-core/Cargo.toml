@@ -5,6 +5,7 @@ authors.workspace = true
 categories = ["text-processing"]
 documentation = "https://docs.rs/csan-core"
 edition.workspace = true
+rust-version.workspace = true
 keywords.workspace = true
 license.workspace = true
 readme.workspace = true

@@ -9,6 +9,8 @@ authors = ["VERALVX <veralvx@veralvx.com>"]
 # list at https://crates.io/category_slugs
 categories = ["text-processing"]
 edition = "2024"
+# Verified by the MSRV job in rust-ci.yml; keep in sync with rust-toolchain.toml.
+rust-version = "1.97"
 # crates.io allows a maximum of 5 keywords; each must start with an
 # alphanumeric character and only contain letters, numbers, _, - or +.
 keywords = ["cutter-sanborn", "cataloging", "call-number", "typst", "library"]
@@ -34,20 +36,20 @@ wasm-minimal-protocol = "0.2"
 
 [workspace.lints.rust]
 absolute_paths_not_starting_with_crate = "deny"
-ambiguous-negative-literals = "deny"
-closure-returning-async-block = "warn"
-deref-into-dyn-supertrait = "deny"
-deprecated-in-future = "deny"
-deprecated-safe-2024 = "deny"
+ambiguous_negative_literals = "deny"
+closure_returning_async_block = "warn"
+deref_into_dyn_supertrait = "deny"
+deprecated_in_future = "deny"
+deprecated_safe_2024 = "deny"
 elided_lifetimes_in_paths = "warn"
 explicit_outlives_requirements = "warn"
-if-let-rescope = "warn"
-impl-trait-overcaptures = "warn"
+if_let_rescope = "warn"
+impl_trait_overcaptures = "warn"
 let_underscore_drop = "deny"
 macro_use_extern_crate = "deny"
 missing_copy_implementations = "warn"
 missing_docs = "warn"
-non-ascii-idents = "deny"
+non_ascii_idents = "deny"
 single_use_lifetimes = "warn"
 trivial_casts = "warn"
 trivial_numeric_casts = "warn"
@@ -57,7 +59,7 @@ trivial_numeric_casts = "warn"
 unknown_lints = "allow"
 unreachable_pub = "deny"
 unsafe_op_in_unsafe_fn = "deny"
-unused-crate-dependencies = "deny"
+unused_crate_dependencies = "deny"
 unused_import_braces = "warn"
 unused_lifetimes = "warn"
 unused_macro_rules = "warn"
