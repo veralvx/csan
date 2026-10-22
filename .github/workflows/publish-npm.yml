@@ -9,7 +9,9 @@
 # publishing registry accepts.
 #
 # Authentication is npm trusted publishing (OIDC), with an NPM_TOKEN
-# repository secret as a fallback. One-time setup:
+# repository secret as a fallback (it must be a granular access token with
+# publish rights: npm is restricting publishing with tokens that bypass
+# 2FA). One-time setup:
 #   1. npmjs.com → package @veralvx/csan → Settings → Trusted publishing →
 #      GitHub Actions: owner `veralvx`, repository `csan`, workflow
 #      `publish-npm.yml`, environment `npm`.
