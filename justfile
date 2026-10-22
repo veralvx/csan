@@ -9,6 +9,9 @@ RAW_PLUGIN_WASM := "target" / WASM_TARGET / WASM_PROFILE / "csan_typst.wasm"
 TYPST_PKG_DIR := "crates/csan-typst/pkg"
 PLUGIN_WASM := TYPST_PKG_DIR / "csan_typst.wasm"
 WEB_CRATE_DIR := "crates/csan-web"
+# The npm name of the Node package (wasm-pack defaults to the crate name).
+# publish-npm.yml publishes the release tarball `npm pack` names after it.
+NPM_PACKAGE := "@veralvx/csan"
 # Where the `*-pack` recipes put release artifacts.
 DIST_EXTRA_DIR := "target/dist-extra"
 
@@ -80,12 +83,14 @@ npm-build:
 [group("Bindings")]
 npm-build-node:
   wasm-pack build {{ WEB_CRATE_DIR }} --release --target nodejs --out-dir pkg-node
-  # wasm-pack copies the license files into the package but leaves them out
-  # of package.json `files`, and npm only auto-includes `LICENSE[.ext]`.
+  # Publish under the npm name. wasm-pack copies the license files into the
+  # package but leaves them out of package.json `files`, and npm only
+  # auto-includes `LICENSE[.ext]`.
   node -e ' \
     const fs = require("node:fs"); \
     const path = "{{ WEB_CRATE_DIR }}/pkg-node/package.json"; \
     const pkg = JSON.parse(fs.readFileSync(path, "utf8")); \
+    pkg.name = "{{ NPM_PACKAGE }}"; \
     pkg.files = [...new Set([...pkg.files, "LICENSE-APACHE", "LICENSE-MIT"])]; \
     fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n");'
 
@@ -293,7 +298,7 @@ release semver:
 
   # 10. Push branch and tag atomically (both or neither). The tag push
   #     triggers the Release workflow, and a successful release triggers
-  #     the PyPI publish.
+  #     the PyPI, npm, and crates.io publishes.
   if ! git push --atomic origin main "$tag"; then
     echo "Error: push failed; the release commit and tag $tag exist locally. Retry with: git push --atomic origin main $tag" >&2
     exit 1

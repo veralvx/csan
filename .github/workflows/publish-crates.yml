@@ -1,0 +1,141 @@
+# Publishes the crates to crates.io once a version-bump release succeeds:
+# `just release` pushes the tag, the Release workflow builds and attaches
+# every artifact, and this workflow publishes the tag's sources, csan-core
+# first (csan depends on it), then csan. The other workspace crates are
+# `publish = false`.
+#
+# Authentication is crates.io trusted publishing (OIDC), with a
+# CARGO_REGISTRY_TOKEN repository secret as a fallback. One-time setup:
+#   1. crates.io → csan-core → Settings → Trusted Publishing → add GitHub:
+#      owner `veralvx`, repository `csan`, workflow `publish-crates.yml`,
+#      environment `crates-io`. Repeat for csan.
+#   2. GitHub → Settings → Environments → create `crates-io` (optionally
+#      with required reviewers). A deployment branch rule must allow
+#      `main`: workflow_run jobs run on the default branch, not on the tag.
+#
+# To (re)publish a release by hand, run it from the Actions tab with the
+# release tag; crate versions already on crates.io are skipped.
+name: Publish to crates.io
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (e.g. v1.2.3)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.tag || github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  # In dependency order.
+  CRATES: csan-core csan
+
+jobs:
+  publish:
+    name: Publish csan-core and csan
+    # The Release workflow also runs (plan-only) for pull requests; only a
+    # successful tag push from this repository is a release.
+    if: >-
+      github.event_name == 'workflow_dispatch' || (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
+    runs-on: ubuntu-latest
+    environment:
+      name: crates-io
+      url: https://crates.io/crates/csan
+    permissions:
+      contents: read
+      id-token: write # crates.io trusted publishing
+    env:
+      # Empty unless the fallback secret is set.
+      FALLBACK_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    steps:
+      - name: Resolve the release tag
+        id: release
+        env:
+          # For a tag push, the triggering run's head_branch is the tag name.
+          TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+        run: |
+          # The Release workflow also accepts prerelease tags (vX.Y.Z-rc.1);
+          # those are not published here.
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::notice::'$TAG' is not a vX.Y.Z release tag; nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            echo "publish=true"
+            echo "tag=$TAG"
+            echo "version=${TAG#v}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Find the crates not yet on crates.io
+        id: registry
+        if: steps.release.outputs.publish == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          missing=()
+          for crate in $CRATES; do
+            # Sparse index path for names of four or more characters.
+            index="$(curl -sSf "https://index.crates.io/${crate:0:2}/${crate:2:2}/$crate")"
+            if jq -e --arg v "$VERSION" 'select(.vers == $v)' <<<"$index" > /dev/null; then
+              echo "::notice::$crate $VERSION is already on crates.io; skipping it."
+            else
+              missing+=("$crate")
+            fi
+          done
+          echo "crates=${missing[*]}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        if: steps.registry.outputs.crates != ''
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+          persist-credentials: false
+
+      # The toolchain comes from rust-toolchain.toml (rustup installs it on
+      # first use).
+      - name: Check the crate versions match the tag
+        if: steps.registry.outputs.crates != ''
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+          MISSING: ${{ steps.registry.outputs.crates }}
+        run: |
+          metadata="$(cargo metadata --no-deps --format-version 1 --locked)"
+          for crate in $MISSING; do
+            found="$(jq -r --arg c "$crate" '.packages[] | select(.name == $c) | .version' <<<"$metadata")"
+            if [ "$found" != "$VERSION" ]; then
+              echo "::error::$crate is $found at $TAG, expected $VERSION"
+              exit 1
+            fi
+          done
+
+      - name: Authenticate with crates.io
+        id: auth
+        if: steps.registry.outputs.crates != '' && env.FALLBACK_TOKEN == ''
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish
+        if: steps.registry.outputs.crates != ''
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token || env.FALLBACK_TOKEN }}
+          MISSING: ${{ steps.registry.outputs.crates }}
+        run: |
+          # cargo publish waits until each crate is in the index, so csan
+          # resolves the csan-core it was just given.
+          for crate in $MISSING; do
+            cargo publish --locked -p "$crate"
+          done
