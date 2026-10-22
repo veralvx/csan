@@ -118,7 +118,7 @@ jobs:
         working-directory: target/dist-extra
         run: for f in *; do sha256sum "$f" > "$f.sha256"; done
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: artifacts-extra-typst
           path: target/dist-extra/*
@@ -152,7 +152,7 @@ jobs:
         working-directory: target/dist-extra
         run: for f in *; do sha256sum "$f" > "$f.sha256"; done
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: artifacts-extra-npm
           path: target/dist-extra/*
@@ -219,7 +219,7 @@ jobs:
           if command -v sha256sum > /dev/null; then sum=(sha256sum); else sum=(shasum -a 256); fi
           for f in *.whl; do "${sum[@]}" "$f" > "$f.sha256"; done
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: artifacts-extra-wheels-${{ matrix.platform.os }}-${{ matrix.platform.target }}
           path: dist/*.whl*
@@ -244,7 +244,7 @@ jobs:
         working-directory: dist
         run: for f in *.tar.gz; do sha256sum "$f" > "$f.sha256"; done
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: artifacts-extra-sdist
           path: dist/*.tar.gz*
