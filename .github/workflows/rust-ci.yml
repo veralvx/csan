@@ -189,6 +189,8 @@ jobs:
   wasm-plugin:
     name: Typst plugin (wasm build + plugin tests)
     runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v7
 
@@ -226,6 +228,8 @@ jobs:
   python-package:
     name: Python package (wheel build + pytest)
     runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v7
 
@@ -255,6 +259,8 @@ jobs:
   npm-package:
     name: npm package (wasm-bindgen tests + wasm-pack build)
     runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v7
 
