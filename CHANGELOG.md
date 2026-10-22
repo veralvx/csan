@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-10-22
+
+### Changed
+
+- Apply fmt
+- Rename csan to csan-core and csan-cli to csan
+- Attach Typst, Python, and npm artifacts to releases
+- Publish to PyPI after each successful release
+- Describe the renamed crates, release artifacts, and publishing
+- Run the extra-artifacts build when its workflow changes
+- Skip the standalone extra-artifacts run for tag pushes
+- Declare rust-version, use snake_case lint names, ignore bytecode
+- Harden PyPI publishing and the extra-artifacts build
+- Run the standalone extra-artifacts build on branch pushes
+- Order the rust-version keys as dprint formats them
+- Merge pull request #7 from veralvx/claude/youthful-brahmagupta-6rcrfr
+
+### Fixed
+
+- Accept forename/surname and reject unknown option keys
+- Check __version__ against the installed metadata
+- Sync the package version and rebuild the plugin
+- Bump the versions that exist in just release
+- Run the npm checks through just and fix dependabot auto-merge
+- Prepend the new changelog section instead of regenerating
+- Refuse to cut a release with no unreleased commits
+- Stop when a version edit fails
+- Refuse a bump too small for breaking changes
+- Reject non-object options with a clear error
+- Stop doubling the Error prefix in option errors
+
 ## [0.5.10] - 2026-10-22
 
 ### Changed

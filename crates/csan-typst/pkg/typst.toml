@@ -1,6 +1,6 @@
 [package]
 name = "csan"
-version = "0.5.10"
+version = "0.6.0"
 entrypoint = "lib.typ"
 authors = ["VERALVX <veralvx@veralvx.com>"]
 license = "MIT OR Apache-2.0"
