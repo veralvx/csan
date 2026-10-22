@@ -11,7 +11,7 @@ categories = ["text-processing"]
 edition = "2024"
 # crates.io allows a maximum of 5 keywords; each must start with an
 # alphanumeric character and only contain letters, numbers, _, - or +.
-keywords = ["cutter-sanborn", "cataloging", "call-number", "typst", "library"]
+keywords = ["cutter", "cutter-sanborn", "cataloging", "call-number", "library"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/veralvx/csan"

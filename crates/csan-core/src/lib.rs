@@ -13,8 +13,8 @@
 //!
 //! Input names are normalized first: whitespace and punctuation are
 //! stripped, diacritics are folded to ASCII, `Mc`/`M'` prefixes expand to
-//! `Mac`, and `St`/`Ste` expand to `Saint`/`Sainte`, matching the
-//! conventions of the underlying tables.
+//! `Mac`, and a surname of `St`/`Ste` expands to `Saint`/`Sainte`,
+//! matching the conventions of the underlying tables.
 //!
 //! # Example
 //! ```

@@ -10,6 +10,10 @@ To build and test locally, you will need the following tools:
 - **Just:** A command runner for our project automation.
 - **Dprint:** Used for standardizing markdown and JSON formatting.
 - **Cocogitto:** Used to enforce Conventional Commits.
+- **cargo-audit and nightly Rust with Miri:** `just checks` also runs
+  `cargo audit` and `just miri` (`rustup toolchain install nightly
+  --component miri`).
+- **For releasing:** git-cliff and jq, which `just release` uses.
 - **Optional, for the Typst plugin:** the `wasm32-unknown-unknown` target
   (`rustup target add wasm32-unknown-unknown`), the `typst` CLI (0.14.2+)
   to run the plugin test documents, and `wasm-opt` (binaryen) if you want
@@ -31,7 +35,7 @@ what CI's `nix.yml` checks, and `nix fmt` formats the Nix files.
 2. Clone your forked repository locally:
 
 ```sh
-git clone https://github.com/veralvx/csan && cd csan
+git clone https://github.com/<your-username>/csan && cd csan
 ```
 
 ## Architecture and Guidelines
@@ -43,11 +47,28 @@ by four thin frontends: `crates/csan` (the `csan` binary),
 `crates/csan-typst/pkg/`), `crates/csan-py` (Python bindings), and
 `crates/csan-web` (JavaScript/npm bindings). Frontends stay thin: shared
 input handling belongs in the library (`Attribution::from_parts`,
-`CutterConfig::from_overrides`), not duplicated per binding. The `README.md` covers the
-layout and the wasm build flow; lint policy lives in the workspace
-`Cargo.toml` (`[workspace.lints]`) and `clippy.toml`, and each allow there
-documents its reason. Please keep new code warning-free under
-`just clippy` rather than adding blanket allows.
+`CutterConfig::from_overrides`), not duplicated per binding. Lint policy
+lives in the workspace `Cargo.toml` (`[workspace.lints]`) and
+`clippy.toml`, and each allow there documents its reason. Please keep new
+code warning-free under `just clippy` rather than adding blanket allows.
+
+### Building the Typst plugin
+
+The compiled plugin (`csan_typst.wasm`) is committed alongside the Typst
+package, so Typst users don't need a Rust toolchain. To rebuild it after
+changing the Rust code:
+
+```sh
+rustup target add wasm32-unknown-unknown
+just wasm        # build + install into crates/csan-typst/pkg
+just wasm-opt    # optional: shrink with binaryen's wasm-opt
+just typst-test  # compile the assert-based plugin test suite
+```
+
+The npm package's build recipes are described in
+[`crates/csan-web/README.md`](crates/csan-web/README.md#building-from-source),
+the Python package's in
+[`crates/csan-py/README.md`](crates/csan-py/README.md#building-from-source).
 
 ## Testing Strategy
 
@@ -59,13 +80,53 @@ When adding new features or fixing bugs, please keep the following in mind:
 ## Development Workflow
 
 1. We enforce the [Conventional Commits](https://www.conventionalcommits.org/) specification.
-2. Run our automated checks locally. Our repository includes a `Justfile` that mirrors our GitHub Actions CI pipeline.
+2. Run our automated checks locally. Our repository includes a `justfile` that mirrors our GitHub Actions CI pipeline.
 
 ```sh
 just checks
 ```
 
-This single command will run formatting (`cargo fmt`, `dprint`), linting (`cargo clippy -D warnings`), testing (`cargo test`), and commit validation (`cog check`). If `just checks` passes on your machine, your code likely passes on CI.
+This runs the core CI gates: `cargo check`/`test`/`clippy -D warnings`
+(all targets, with the `cargo`, `pedantic`, and `restriction` clippy groups
+enabled), `cargo fmt --check`, `cargo doc -D warnings`, `cargo audit`, Miri,
+`dprint check`, and `cog check` for Conventional Commits. If `just checks`
+passes on your machine, your code likely passes on CI, which additionally
+builds and smoke-tests the Typst plugin, the Python wheel, and the npm
+package.
+
+## Releasing
+
+`just release <major|minor|patch>` (on an up-to-date, clean `main`) bumps
+the workspace version, the `csan-core` dependency pin, and the Typst
+package version, prepends the release's section to `CHANGELOG.md` with
+git-cliff, then commits, tags, and pushes. It refuses a bump smaller than
+the unreleased breaking changes require. The tag starts the Release
+workflow, which uses [dist](https://opensource.axo.dev/cargo-dist/) to
+build the `csan` binaries and installers and attaches, to the same GitHub
+release:
+
+- the Typst plugin (`csan_typst.wasm`) and package
+  (`csan_typst-<version>.tar.gz`);
+- the Python wheels (abi3, Linux/musllinux/macOS/Windows on x86_64 and
+  aarch64) and sdist;
+- the Node npm package (`veralvx-csan-<version>.tgz`).
+
+Three workflows then publish the release, each only once the Release
+workflow has succeeded and each with trusted publishing (the one-time setup
+is described at the top of each file):
+
+- `publish-pypi.yml` uploads the release's wheels and sdist to
+  [PyPI](https://pypi.org/project/csan/) (it runs when the Release
+  workflow completes);
+- `publish-npm.yml` publishes the release's npm tarball as
+  [`@veralvx/csan`](https://www.npmjs.com/package/@veralvx/csan);
+- `publish-crates.yml` publishes `csan-core`, then `csan`, from the tag to
+  [crates.io](https://crates.io/crates/csan).
+
+The npm and crates.io workflows start on the tag push and wait for that
+tag's Release run, since crates.io trusted publishing does not accept
+`workflow_run` events. Each workflow can also be run by hand for a release
+tag, and skips whatever that release already published.
 
 ## Creating a Pull Request
 

@@ -1,8 +1,10 @@
 # csan (Python package)
 
-Cutter call numbers for library cataloging — Cutter-Sanborn three-figure
-and Library of Congress — as fast Rust-powered Python bindings, including
-the `csan` command-line tool.
+Generate Cutter-Sanborn three-figure and Library of Congress cutter numbers
+for library cataloging from author names and titles. The package provides
+Python bindings to the Rust [`csan-core`](https://crates.io/crates/csan-core)
+library and the `csan` command-line tool, as abi3 wheels for CPython 3.9+
+on Linux, macOS, and Windows.
 
 ```sh
 pip install csan        # library + CLI
@@ -13,12 +15,12 @@ uv tool install csan    # just the CLI, isolated
 import csan
 
 csan.cutter_sanborn(forename="Charles", surname="Dickens",
-                      title="Oliver Twist")   # 'D548o'
-csan.cutter_loc(surname="Carter")       # 'C378'
+                    title="Oliver Twist")  # 'D548o'
+csan.cutter_loc(surname="Carter")  # 'C378'
 
 csan.cutter_sanborn_detailed(surname="Borges")
-# {'alpha_prefix': 'B', 'numeric': 732, 'alpha_suffix': None,
-#  'entry': 'Borg', 'formatted': 'B732'}
+# {'alpha_prefix': 'B', 'alpha_suffix': None, 'entry': 'Borg',
+#  'formatted': 'B732', 'numeric': 732}
 ```
 
 Every function accepts `forename`, `surname`, and `title` keyword
@@ -47,10 +49,9 @@ maturin develop -m crates/csan-py/Cargo.toml       # editable install
 maturin build --release -m crates/csan-py/Cargo.toml
 ```
 
-Releases are published to PyPI automatically: each GitHub release carries
-abi3 wheels (CPython 3.9+) for Linux (manylinux and musllinux), macOS, and
-Windows on x86_64 and aarch64, plus the sdist, and the Publish to PyPI
-workflow uploads them once the release succeeds.
+Each [GitHub release](https://github.com/veralvx/csan/releases) carries
+the wheels (Linux manylinux and musllinux, macOS, and Windows, on x86_64
+and aarch64) and the sdist that are published to PyPI.
 
 ## License
 
