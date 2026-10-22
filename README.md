@@ -132,10 +132,16 @@ full API and the maturin build/publish flow.
 ## JavaScript (npm)
 
 `crates/csan-web` exposes the library to JavaScript via WebAssembly,
-packaged for npm with `wasm-pack`:
+packaged with `wasm-pack` and published to npm as
+[`@veralvx/csan`](https://www.npmjs.com/package/@veralvx/csan) (a Node
+package):
+
+```sh
+npm install @veralvx/csan
+```
 
 ```js
-import { cutterLoc, cutterSanborn } from "csan-web";
+const { cutterLoc, cutterSanborn } = require("@veralvx/csan");
 cutterSanborn({ surname: "Dickens", title: "Oliver Twist" }); // "D548o"
 cutterLoc({ surname: "Carter" }); // "C378"
 ```
@@ -202,13 +208,20 @@ and installers and attaches, to the same GitHub release:
   (`csan_typst-<version>.tar.gz`);
 - the Python wheels (abi3, Linux/musllinux/macOS/Windows on x86_64 and
   aarch64) and sdist;
-- the Node npm package (`csan-web-<version>.tgz`).
+- the Node npm package (`veralvx-csan-<version>.tgz`).
 
-Once the release succeeds, the Publish to PyPI workflow uploads its wheels
-and sdist to [PyPI](https://pypi.org/project/csan/) (trusted publishing;
-the one-time setup is described in `.github/workflows/publish-pypi.yml`).
-Crates are published to crates.io by hand, library first:
-`cargo publish -p csan-core && cargo publish -p csan`.
+Once the release succeeds, three workflows publish it, each with trusted
+publishing (the one-time setup is described at the top of each file):
+
+- `publish-pypi.yml` uploads the release's wheels and sdist to
+  [PyPI](https://pypi.org/project/csan/);
+- `publish-npm.yml` publishes the release's npm tarball as
+  [`@veralvx/csan`](https://www.npmjs.com/package/@veralvx/csan);
+- `publish-crates.yml` publishes `csan-core`, then `csan`, from the tag to
+  [crates.io](https://crates.io/crates/csan).
+
+Each can also be run by hand for a release tag, and skips whatever that
+release already published.
 
 ## Development
 
