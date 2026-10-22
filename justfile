@@ -250,8 +250,10 @@ release semver:
   # 6. Refresh the workspace members' versions in Cargo.lock
   cargo update --workspace
 
-  # 7. Regenerate the full changelog, with the same tag computed above
-  git cliff --tag "$tag" --output CHANGELOG.md
+  # 7. Prepend this release's section (for the tag computed above) to the
+  #    changelog. Earlier sections, including hand edits, are kept as is,
+  #    and a shallow clone cannot drop the history it lacks.
+  git cliff --unreleased --tag "$tag" --prepend CHANGELOG.md
 
   # 8. Stage exactly the files modified by the release process
   git add "${release_files[@]}"
