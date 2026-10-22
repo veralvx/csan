@@ -199,9 +199,17 @@ release semver:
 
   # 4. Compute the bumped version tag
   # Handles both git-cliff v1 (array) and v2+ (object with .releases) JSON.
-  tag="$(git cliff --unreleased --bump {{ semver }} --context \
-    | jq -r 'if type == "array" then .[0].version else .releases[0].version end')"
+  # git-cliff 2.x reports a bumped version even with nothing to release, so
+  # the unreleased commits are counted as well.
+  release_json="$(git cliff --unreleased --bump {{ semver }} --context \
+    | jq -c 'if type == "array" then .[0] else .releases[0] end')"
+  tag="$(jq -r '.version' <<<"$release_json")"
+  unreleased="$(jq -r '.commits | length' <<<"$release_json")"
 
+  if [ "$unreleased" -eq 0 ]; then
+    echo "Error: no unreleased commits since the latest tag; nothing to release." >&2
+    exit 1
+  fi
   if [ -z "$tag" ] || [ "$tag" = "null" ]; then
     echo "Error: Could not determine bumped version. Are there unreleased conventional commits?" >&2
     exit 1
