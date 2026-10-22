@@ -5,11 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.10] - 2026-10-22
+
+### Changed
+
+- Rename given-name and family-name
+- Rename given_ and family_ prefixes
+- Ignore .ropeproject
+- Apply fmt
+- Move csan crate declaration to root Cargo.toml
+
+### Fixed
+
+- Override env for rustup toolchain
+- Rename wasm file for typst
+
+## [0.5.9] - 2026-10-21
 
 ### Changed
 
 - Bump to 0.5.9
+- Update CHANGELOG
 
 ### Removed
 
@@ -265,7 +281,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial tests
 - Passing checks for release
 
-[unreleased]: https://github.com/veralvx/csan/compare/v0.5.8..HEAD
+[0.5.10]: https://github.com/veralvx/csan/compare/v0.5.9..0.5.10
+[0.5.9]: https://github.com/veralvx/csan/compare/v0.5.8..v0.5.9
 [0.5.8]: https://github.com/veralvx/csan/compare/v0.5.7..v0.5.8
 [0.5.7]: https://github.com/veralvx/csan/compare/v0.5.6..v0.5.7
 [0.5.6]: https://github.com/veralvx/csan/compare/v0.5.5..v0.5.6
