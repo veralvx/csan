@@ -20,7 +20,9 @@ same tarball, `veralvx-csan-<version>.tgz`.
 ## Usage
 
 ```js
-const { cutterLoc, cutterSanborn, cutterSanbornDetailed } = require("@veralvx/csan");
+const { cutterLoc, cutterSanborn, cutterSanbornDetailed } = require(
+  "@veralvx/csan",
+);
 
 cutterSanborn({
   forename: "Charles",
