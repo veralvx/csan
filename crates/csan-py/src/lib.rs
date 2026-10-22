@@ -6,13 +6,13 @@
 
 //! The `csan._csan` Python extension module.
 //!
-//! Exposes [`csan`]'s Cutter call number generation to Python, plus the
+//! Exposes [`csan_core`]'s Cutter call number generation to Python, plus the
 //! `run_cli` entry point that powers the `csan` console script (the same
-//! `clap` interface as the standalone binary, provided by [`csan_cli`]).
+//! `clap` interface as the standalone binary, provided by [`csan`]).
 //! The user-facing package (docstrings, `main()`, re-exports) lives in
 //! `python/csan/__init__.py`.
 
-use csan::{
+use csan_core::{
     Attribution, CutterConfig, CutterGenerator, CutterLoc, CutterLocMethod, CutterSanborn,
     CutterSanbornMethod, detailed_json,
 };
@@ -200,7 +200,7 @@ fn cutter_loc_detailed<'py>(
 /// callers should prefer the ``cutter_*`` functions.
 #[pyfunction]
 fn run_cli(args: Vec<String>) -> u8 {
-    csan_cli::run_from_args(iter::once(String::from("csan")).chain(args))
+    csan::run_from_args(iter::once(String::from("csan")).chain(args))
 }
 
 /// Registers the extension module.

@@ -42,8 +42,8 @@ use serde::ser::{Error as SerError, Serialize, SerializeMap, Serializer};
 ///
 /// # Examples
 /// ```
-/// use csan::catalog::cutter::detail::Detailed;
-/// use csan::CutterLoc;
+/// use csan_core::catalog::cutter::detail::Detailed;
+/// use csan_core::CutterLoc;
 ///
 /// let cutter = CutterLoc::new('C', 378);
 /// let json = serde_json::to_value(Detailed::new(&cutter)).unwrap();
@@ -138,8 +138,8 @@ pub enum DetailedError {
 ///
 /// # Examples
 /// ```
-/// use csan::catalog::cutter::detail::detailed_json;
-/// use csan::CutterSanborn;
+/// use csan_core::catalog::cutter::detail::detailed_json;
+/// use csan_core::CutterSanborn;
 ///
 /// let cutter = CutterSanborn::new("D".to_owned(), 548, Some("o".to_owned()), "Dickens");
 /// let object = detailed_json(&cutter).unwrap();

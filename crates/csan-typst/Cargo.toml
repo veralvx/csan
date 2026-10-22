@@ -6,6 +6,7 @@ edition.workspace = true
 license.workspace = true
 publish = false
 repository.workspace = true
+rust-version.workspace = true
 description = "Typst WASM plugin exposing csan's Cutter call number generation"
 
 [lib]
@@ -16,7 +17,7 @@ workspace = true
 
 [dependencies]
 ciborium = { workspace = true }
-csan = { workspace = true }
+csan-core = { workspace = true }
 serde = { workspace = true }
 
 # The protocol macros only make sense (and only generate code) for the wasm

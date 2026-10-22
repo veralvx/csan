@@ -12,3 +12,6 @@ crates/csan-typst/pkg/**/*.pdf
 crates/csan-web/pkg/
 crates/csan-web/pkg-node/
 crates/csan-web/pkg-web/
+# Python bytecode (pytest runs)
+__pycache__/
+*.py[cod]

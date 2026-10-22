@@ -47,9 +47,10 @@ maturin develop -m crates/csan-py/Cargo.toml       # editable install
 maturin build --release -m crates/csan-py/Cargo.toml
 ```
 
-Publishing to PyPI: `maturin publish -m crates/csan-py/Cargo.toml`
-(abi3 wheels for CPython 3.9+; use maturin's manylinux support or
-`maturin-action` in CI for portable Linux wheels).
+Releases are published to PyPI automatically: each GitHub release carries
+abi3 wheels (CPython 3.9+) for Linux (manylinux and musllinux), macOS, and
+Windows on x86_64 and aarch64, plus the sdist, and the Publish to PyPI
+workflow uploads them once the release succeeds.
 
 ## License
 

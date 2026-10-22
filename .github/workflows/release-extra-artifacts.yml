@@ -1,0 +1,248 @@
+# Extra release artifacts, built alongside dist's own: the Typst plugin and
+# package, the Python wheels and sdist, and the Node npm package.
+#
+# Called by release.yml through dist's `global-artifacts-jobs`
+# (dist-workspace.toml) for a release tag. Everything it uploads under an
+# `artifacts-*` name is attached to the GitHub Release by dist's `host`
+# job, which waits for this workflow to succeed. Changes to this file also
+# run it standalone (without a dist plan, so no release is involved) to
+# check the build before it is needed for a release.
+name: Release extra artifacts
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        description: The dist plan manifest (JSON)
+        required: true
+        type: string
+  # Standalone runs for changes to the packaging inputs, like rust-ci.yml
+  # (pushes to any branch, and pull requests). Push is limited to branches:
+  # path filters are not evaluated for tag pushes, so a release tag would
+  # otherwise also start a duplicate build.
+  push:
+    branches: ["**"]
+    paths:
+      - ".github/workflows/release-extra-artifacts.yml"
+      - "justfile"
+      - "rust-toolchain.toml"
+      - "crates/csan-py/pyproject.toml"
+      - "crates/csan-py/Cargo.toml"
+      - "crates/csan-web/Cargo.toml"
+      - "crates/csan-typst/pkg/typst.toml"
+  pull_request:
+    paths:
+      - ".github/workflows/release-extra-artifacts.yml"
+      - "justfile"
+      - "rust-toolchain.toml"
+      - "crates/csan-py/pyproject.toml"
+      - "crates/csan-py/Cargo.toml"
+      - "crates/csan-web/Cargo.toml"
+      - "crates/csan-typst/pkg/typst.toml"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # The release tag must match every manifest that carries the version;
+  # dist checks Cargo.toml, this checks the Typst package too. Without a
+  # plan (a standalone run) the Cargo and Typst versions must still agree.
+  versions:
+    name: Check release versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Compare the tag with the manifests
+        env:
+          PLAN: ${{ inputs.plan }}
+        run: |
+          cargo_version="$(cargo metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.name == "csan") | .version')"
+          typst_version="$(awk -F'"' '/^version[[:space:]]*=/ { print $2; exit }' \
+            crates/csan-typst/pkg/typst.toml)"
+          if [ -n "$PLAN" ]; then
+            tag="$(jq -r '.announcement_tag' <<<"$PLAN")"
+          else
+            tag="v$cargo_version"
+          fi
+          version="${tag#v}"
+          echo "tag=$tag cargo=$cargo_version typst=$typst_version"
+          if [ "$cargo_version" != "$version" ] || [ "$typst_version" != "$version" ]; then
+            echo "::error::release tag $tag does not match the manifests (Cargo.toml $cargo_version, typst.toml $typst_version)"
+            exit 1
+          fi
+
+  typst:
+    name: Typst plugin and package
+    needs: versions
+    runs-on: ubuntu-latest
+    env:
+      # rust-toolchain.toml pins a toolchain without the wasm target; build
+      # with the stable toolchain the target is installed for.
+      RUSTUP_TOOLCHAIN: stable
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install stable + wasm target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      - name: Install Typst
+        run: |
+          curl -sSfL -o /tmp/typst.tar.xz \
+            https://github.com/typst/typst/releases/download/v0.15.1/typst-x86_64-unknown-linux-musl.tar.xz
+          tar -xf /tmp/typst.tar.xz -C /tmp
+          sudo mv /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst
+          typst --version
+
+      - name: Build, test, and pack
+        run: just typst-pack target/dist-extra
+
+      - name: Checksums
+        working-directory: target/dist-extra
+        run: for f in *; do sha256sum "$f" > "$f.sha256"; done
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: artifacts-extra-typst
+          path: target/dist-extra/*
+          if-no-files-found: error
+
+  npm:
+    name: Node npm package
+    needs: versions
+    runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install stable + wasm target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack and just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.15.0,just
+
+      - name: Build, smoke-test, and pack
+        run: just npm-pack target/dist-extra
+
+      - name: Checksums
+        working-directory: target/dist-extra
+        run: for f in *; do sha256sum "$f" > "$f.sha256"; done
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: artifacts-extra-npm
+          path: target/dist-extra/*
+          if-no-files-found: error
+
+  # abi3 wheels (CPython 3.9+), one per platform; the matrix follows
+  # `maturin generate-ci github`.
+  wheels:
+    name: Python wheel (${{ matrix.platform.os }} ${{ matrix.platform.target }})
+    needs: versions
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { os: linux, runner: ubuntu-22.04, target: x86_64, manylinux: auto, smoke: true }
+          - { os: linux, runner: ubuntu-22.04, target: aarch64, manylinux: auto }
+          - { os: musllinux, runner: ubuntu-22.04, target: x86_64, manylinux: musllinux_1_2 }
+          - { os: musllinux, runner: ubuntu-22.04, target: aarch64, manylinux: musllinux_1_2 }
+          - { os: windows, runner: windows-latest, target: x64, python-arch: x64, smoke: true }
+          - { os: windows, runner: windows-11-arm, target: aarch64, python-arch: arm64, smoke: true }
+          - { os: macos, runner: macos-15-intel, target: x86_64, smoke: true }
+          - { os: macos, runner: macos-latest, target: aarch64, smoke: true }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          architecture: ${{ matrix.platform.python-arch }}
+
+      # maturin-action installs the requested toolchain (and the cross
+      # target) itself; hand it the one rust-toolchain.toml pins, so the
+      # pinned toolchain is the one that has the target installed.
+      - name: Read the pinned toolchain
+        id: toolchain
+        shell: bash
+        # tr: a CRLF checkout (Windows) must not leave a trailing \r.
+        run: echo "channel=$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml | tr -d '\r')" >> "$GITHUB_OUTPUT"
+
+      - name: Build the wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          manylinux: ${{ matrix.platform.manylinux }}
+          rust-toolchain: ${{ steps.toolchain.outputs.channel }}
+          args: --release --locked --out dist -m crates/csan-py/Cargo.toml
+
+      - name: Smoke-test the wheel
+        if: ${{ matrix.platform.smoke }}
+        shell: bash
+        run: |
+          python -m pip install --no-index --find-links dist csan
+          test "$(csan --cutter-sanborn --surname Dickens --title "Oliver Twist")" = "D548o"
+          python -c 'import csan; assert csan.cutter_loc(surname="Carter") == "C378"'
+
+      - name: Checksums
+        shell: bash
+        working-directory: dist
+        run: |
+          if command -v sha256sum > /dev/null; then sum=(sha256sum); else sum=(shasum -a 256); fi
+          for f in *.whl; do "${sum[@]}" "$f" > "$f.sha256"; done
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: artifacts-extra-wheels-${{ matrix.platform.os }}-${{ matrix.platform.target }}
+          path: dist/*.whl*
+          if-no-files-found: error
+
+  sdist:
+    name: Python sdist
+    needs: versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Build the sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist -m crates/csan-py/Cargo.toml
+
+      - name: Checksums
+        working-directory: dist
+        run: for f in *.tar.gz; do sha256sum "$f" > "$f.sha256"; done
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: artifacts-extra-sdist
+          path: dist/*.tar.gz*
+          if-no-files-found: error

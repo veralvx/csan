@@ -1,0 +1,94 @@
+# Publishes the Python package to PyPI once a version-bump release
+# succeeds: `just release` pushes the tag, the Release workflow builds every
+# artifact (including the wheels and sdist, see
+# release-extra-artifacts.yml) and creates the GitHub Release, and this
+# workflow uploads exactly those Python files from it.
+#
+# It is a separate top-level workflow because PyPI trusted publishing does
+# not support reusable workflows. One-time setup:
+#   1. PyPI → project `csan` → Settings → Publishing → add a GitHub
+#      trusted publisher: owner `veralvx`, repository `csan`, workflow
+#      `publish-pypi.yml`, environment `pypi`.
+#   2. GitHub → Settings → Environments → create `pypi` (optionally with
+#      required reviewers). A deployment branch rule must allow `main`:
+#      workflow_run jobs run on the default branch, not on the tag.
+#
+# To (re)publish a release by hand, run it from the Actions tab with the
+# release tag; files already on PyPI are skipped.
+name: Publish to PyPI
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (e.g. v1.2.3)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.tag || github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Upload to PyPI
+    # The Release workflow also runs (plan-only) for pull requests; only a
+    # successful tag push from this repository is a release.
+    if: >-
+      github.event_name == 'workflow_dispatch' || (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/csan/
+    permissions:
+      contents: read # download the release assets
+      id-token: write # PyPI trusted publishing
+    steps:
+      - name: Resolve the release tag
+        id: release
+        env:
+          # For a tag push, the triggering run's head_branch is the tag name.
+          TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+        run: |
+          # The Release workflow also accepts prerelease tags (vX.Y.Z-rc.1),
+          # whose PEP 440 file names differ; those are not published here.
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::notice::'$TAG' is not a vX.Y.Z release tag; nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            echo "publish=true"
+            echo "tag=$TAG"
+            echo "version=${TAG#v}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download the wheels and sdist from the GitHub Release
+        if: steps.release.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dist \
+            --pattern "csan-$VERSION-*.whl" --pattern "csan-$VERSION.tar.gz"
+          ls -l dist
+          test -f "dist/csan-$VERSION.tar.gz" || { echo "::error::sdist missing from $TAG"; exit 1; }
+          compgen -G "dist/csan-$VERSION-*.whl" > /dev/null || { echo "::error::no wheels in $TAG"; exit 1; }
+
+      - name: Publish
+        if: steps.release.outputs.publish == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          skip-existing: true

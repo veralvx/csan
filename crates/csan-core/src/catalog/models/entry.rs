@@ -39,7 +39,7 @@ impl Attribution {
     ///
     /// # Examples
     /// ```
-    /// # use csan::catalog::models::entry::Attribution;
+    /// # use csan_core::catalog::models::entry::Attribution;
     /// assert!(matches!(
     ///     Attribution::from_parts(Some("Charles"), Some("Dickens"), None),
     ///     Some(Attribution::AuthorOnly(_))

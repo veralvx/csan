@@ -28,7 +28,7 @@ impl Author {
     ///
     /// # Examples
     /// ```
-    /// # use csan::catalog::models::author::Author;
+    /// # use csan_core::catalog::models::author::Author;
     /// let author = Author::new("William", "Shakespeare");
     /// ```
     #[must_use]

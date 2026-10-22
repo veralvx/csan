@@ -11,6 +11,7 @@ same Python interface end users call, against the built module. Run with::
 
 from __future__ import annotations
 
+import importlib.metadata
 import pathlib
 import subprocess
 import sys
@@ -175,7 +176,9 @@ def test_run_cli_help_returns_zero():
 # package metadata and console script
 # --------------------------------------------------------------------------
 def test_version_is_exposed():
-    assert csan.__version__ == "0.1.0"
+    # The extension reports the crate version; the wheel metadata carries the
+    # same value (maturin derives it from Cargo.toml), so neither is pinned.
+    assert csan.__version__ == importlib.metadata.version("csan")
 
 
 def test_public_api_is_exported():

@@ -12,16 +12,16 @@ const {
 } = require("../pkg-node/csan_web.js");
 
 const works = [
-  { givenName: "Charles", familyName: "Dickens", title: "Oliver Twist" },
-  { familyName: "Borges", title: "Ficciones" },
+  { forename: "Charles", surname: "Dickens", title: "Oliver Twist" },
+  { surname: "Borges", title: "Ficciones" },
   { title: "100 best hamburger recipes" },
 ];
 
 for (const work of works) {
-  const label = work.familyName ?? work.title;
+  const label = work.surname ?? work.title;
   console.log(
     `${label}: sanborn=${cutterSanborn(work)} loc=${cutterLoc(work)}`,
   );
 }
 
-console.log("detailed:", cutterSanbornDetailed({ familyName: "Borges" }));
+console.log("detailed:", cutterSanbornDetailed({ surname: "Borges" }));

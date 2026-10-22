@@ -6,6 +6,7 @@ edition.workspace = true
 license.workspace = true
 publish = false
 repository.workspace = true
+rust-version.workspace = true
 description = "Python bindings for Cutter call number generation"
 
 [lib]
@@ -16,7 +17,7 @@ crate-type = ["cdylib"]
 # harness for this crate cannot link. The binding functions are tested from
 # Python instead, against the built module, in tests/test_csan.py (run in
 # CI's python-package job); the shared logic they delegate to is covered by
-# the csan and csan-cli unit tests.
+# the csan-core and csan (CLI) unit tests.
 test = false
 doctest = false
 
@@ -24,8 +25,8 @@ doctest = false
 workspace = true
 
 [dependencies]
-csan = { workspace = true }
-csan-cli = { path = "../csan-cli" }
+csan = { path = "../csan" }
+csan-core = { workspace = true }
 pyo3 = { workspace = true }
 serde_json = { workspace = true }
 

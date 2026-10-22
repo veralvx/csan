@@ -189,17 +189,17 @@ checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 name = "csan"
 version = "0.5.10"
 dependencies = [
- "derive_more",
- "serde",
+ "clap",
+ "csan-core",
  "serde_json",
 ]
 
 [[package]]
-name = "csan-cli"
+name = "csan-core"
 version = "0.5.10"
 dependencies = [
- "clap",
- "csan",
+ "derive_more",
+ "serde",
  "serde_json",
 ]
 
@@ -208,7 +208,7 @@ name = "csan-py"
 version = "0.5.10"
 dependencies = [
  "csan",
- "csan-cli",
+ "csan-core",
  "pyo3",
  "serde_json",
 ]
@@ -218,7 +218,7 @@ name = "csan-typst"
 version = "0.5.10"
 dependencies = [
  "ciborium",
- "csan",
+ "csan-core",
  "serde",
  "wasm-minimal-protocol",
 ]
@@ -227,7 +227,7 @@ dependencies = [
 name = "csan-web"
 version = "0.5.10"
 dependencies = [
- "csan",
+ "csan-core",
  "js-sys",
  "serde",
  "serde-wasm-bindgen",

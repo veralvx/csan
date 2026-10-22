@@ -4,7 +4,7 @@
 // while allowing the macro-generated blocks through.
 #![deny(unsafe_code)]
 
-//! JavaScript bindings for [`csan`]'s Cutter call number generation,
+//! JavaScript bindings for [`csan_core`]'s Cutter call number generation,
 //! built with [`wasm-bindgen`](https://github.com/wasm-bindgen/wasm-bindgen).
 //!
 //! Compiled to `wasm32-unknown-unknown` (typically via `wasm-pack`), this
@@ -14,30 +14,86 @@
 //! ```js
 //! import { cutterSanborn, cutterLoc } from "csan-web";
 //!
-//! cutterSanborn({ givenName: "Charles", familyName: "Dickens",
-//!                 title: "Oliver Twist" });        // "D548o"
-//! cutterLoc({ familyName: "Carter" });             // "C378"
-//! cutterSanbornDetailed({ familyName: "Borges" }); // { alpha_prefix: "B", … }
+//! cutterSanborn({ forename: "Charles", surname: "Dickens",
+//!                 title: "Oliver Twist" });     // "D548o"
+//! cutterLoc({ surname: "Carter" });             // "C378"
+//! cutterSanbornDetailed({ surname: "Borges" }); // { alpha_prefix: "B", … }
 //! ```
 //!
-//! At least one of `givenName`/`familyName`/`title` must be non-blank;
-//! blank strings count as absent. Errors are thrown as JavaScript `Error`s.
+//! At least one of `forename`/`surname`/`title` must be non-blank;
+//! blank strings count as absent. Unknown option keys are rejected rather
+//! than ignored, so a misspelled key cannot silently change the result.
+//! Errors are thrown as JavaScript `Error`s.
 //!
 //! The `*Detailed` variants return plain objects with the number's parts
 //! plus the rendered call number under `formatted`. The option structs and
 //! the `*_impl` functions compile and are unit-tested on the host, so the
 //! full logic path is exercised without a browser.
 
-use csan::{
+use csan_core::{
     Attribution, CutterConfig, CutterGenerator, CutterLoc, CutterLocMethod, CutterSanborn,
     CutterSanbornMethod, Detailed,
 };
+use serde::de::value::MapAccessDeserializer;
+use serde::de::{Deserializer, MapAccess, Visitor};
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::marker::PhantomData;
 use wasm_bindgen::prelude::{JsError, JsValue, wasm_bindgen};
+
+// TypeScript declarations for the options and detailed results; the
+// exports below reference them through `unchecked_*_type`, so the generated
+// `.d.ts` is typed instead of `any`.
+#[wasm_bindgen(typescript_custom_section)]
+const TS_TYPES: &str = r#"
+/** Options for `cutterSanborn` and `cutterSanbornDetailed`. */
+export interface SanbornOptions {
+  /** The author's given (first) name. */
+  forename?: string | null;
+  /** The author's family (last) name. */
+  surname?: string | null;
+  /** The work's title (work mark source, or title-derived cutters). */
+  title?: string | null;
+  /** Letters taken from the name for the call number prefix (default 1). */
+  prefixLen?: number | null;
+  /** Letters taken from the title for the work mark (default 1). */
+  suffixLen?: number | null;
+}
+
+/** Options for `cutterLoc` and `cutterLocDetailed`. */
+export interface LocOptions {
+  /** The author's given (first) name. */
+  forename?: string | null;
+  /** The author's family (last) name. */
+  surname?: string | null;
+  /** The work's title (used when no author is given). */
+  title?: string | null;
+  /** Digits in the number, clamped to 4 (default 3). */
+  maxLen?: number | null;
+}
+
+/** The parts of a Cutter-Sanborn number. */
+export interface CutterSanbornDetailed {
+  alpha_prefix: string;
+  numeric: number;
+  /** The work mark; absent when no title was given. */
+  alpha_suffix?: string;
+  /** The Cutter-Sanborn table key that matched. */
+  entry: string;
+  formatted: string;
+}
+
+/** The parts of a Library of Congress cutter number. */
+export interface CutterLocDetailed {
+  alpha_prefix: string;
+  numeric: number;
+  formatted: string;
+}
+"#;
 
 /// Options accepted by [`cutter_sanborn`] and [`cutter_sanborn_detailed`].
 #[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct SanbornOptions {
     /// The author's given (first) name.
     pub forename: Option<String>,
@@ -53,7 +109,7 @@ pub struct SanbornOptions {
 
 /// Options accepted by [`cutter_loc`] and [`cutter_loc_detailed`].
 #[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct LocOptions {
     /// The author's given (first) name.
     pub forename: Option<String>,
@@ -68,12 +124,12 @@ pub struct LocOptions {
 /// Builds the [`Attribution`] for a set of optional inputs, with a
 /// JS-friendly error message.
 fn attribution(
-    given: Option<&str>,
-    family: Option<&str>,
+    forename: Option<&str>,
+    surname: Option<&str>,
     title: Option<&str>,
 ) -> Result<Attribution, String> {
-    Attribution::from_parts(given, family, title).ok_or_else(|| {
-        String::from("provide at least one non-blank input: givenName, familyName, or title")
+    Attribution::from_parts(forename, surname, title).ok_or_else(|| {
+        String::from("provide at least one non-blank input: forename, surname, or title")
     })
 }
 
@@ -105,17 +161,62 @@ pub fn loc_impl(options: &LocOptions) -> Result<CutterLoc, String> {
     CutterLocMethod::generate(&entry, config).map_err(|e| e.to_string())
 }
 
+/// Deserializes `T` through the deserializer's *map* path.
+///
+/// serde-wasm-bindgen's struct path only looks up the field names `T`
+/// declares, so keys `T` does not know never reach it and
+/// `deny_unknown_fields` cannot fire. Its map path enumerates every own key
+/// of the object; replaying those entries into `T` lets the derived
+/// visitor reject a misspelled key instead of silently ignoring it.
+struct AllKeys<T>(T);
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for AllKeys<T> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct EntriesVisitor<T>(PhantomData<T>);
+
+        impl<'de, T: Deserialize<'de>> Visitor<'de> for EntriesVisitor<T> {
+            type Value = T;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("an options object")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<T, A::Error> {
+                T::deserialize(MapAccessDeserializer::new(map))
+            }
+        }
+
+        deserializer
+            .deserialize_map(EntriesVisitor(PhantomData))
+            .map(AllKeys)
+    }
+}
+
 /// Deserializes a JS options object, treating `undefined`/`null` as `{}`.
+///
+/// Only the object's own properties are read (inherited ones are not).
 fn parse_options<T: Default + for<'de> Deserialize<'de>>(options: &JsValue) -> Result<T, JsError> {
     if options.is_undefined() || options.is_null() {
         return Ok(T::default());
     }
-    serde_wasm_bindgen::from_value(options.clone()).map_err(|e| JsError::new(&e.to_string()))
+    // The map path would otherwise fail on a primitive with an opaque
+    // `Reflect.get` TypeError.
+    if !options.is_object() {
+        return Err(JsError::new("options must be an object"));
+    }
+    serde_wasm_bindgen::from_value::<AllKeys<T>>(options.clone())
+        .map(|AllKeys(parsed)| parsed)
+        .map_err(|e| {
+            // The error renders as a JS `Error`'s `toString()`; drop its
+            // "Error: " prefix so the thrown message is not doubled.
+            let message = e.to_string();
+            JsError::new(message.strip_prefix("Error: ").unwrap_or(&message))
+        })
 }
 
 /// Serializes a value into a plain JS object.
 ///
-/// The [`Detailed`](csan::Detailed) adapter serializes through serde's map
+/// The [`Detailed`](csan_core::Detailed) adapter serializes through serde's map
 /// interface; serde-wasm-bindgen would otherwise render that as a JS `Map`,
 /// so `serialize_maps_as_objects` keeps the output a plain object with the
 /// fields as properties (what JS callers expect).
@@ -132,7 +233,9 @@ fn to_js(value: &impl Serialize) -> Result<JsValue, JsError> {
 /// Throws when the options are malformed, no usable input was provided, or
 /// generation fails.
 #[wasm_bindgen(js_name = "cutterSanborn")]
-pub fn cutter_sanborn(options: &JsValue) -> Result<String, JsError> {
+pub fn cutter_sanborn(
+    #[wasm_bindgen(unchecked_param_type = "SanbornOptions | null | undefined")] options: &JsValue,
+) -> Result<String, JsError> {
     let parsed: SanbornOptions = parse_options(options)?;
     sanborn_impl(&parsed)
         .map(|c| c.to_string())
@@ -145,8 +248,13 @@ pub fn cutter_sanborn(options: &JsValue) -> Result<String, JsError> {
 /// # Errors
 /// Throws when the options are malformed, no usable input was provided, or
 /// generation fails.
-#[wasm_bindgen(js_name = "cutterSanbornDetailed")]
-pub fn cutter_sanborn_detailed(options: &JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(
+    js_name = "cutterSanbornDetailed",
+    unchecked_return_type = "CutterSanbornDetailed"
+)]
+pub fn cutter_sanborn_detailed(
+    #[wasm_bindgen(unchecked_param_type = "SanbornOptions | null | undefined")] options: &JsValue,
+) -> Result<JsValue, JsError> {
     let parsed: SanbornOptions = parse_options(options)?;
     let cutter = sanborn_impl(&parsed).map_err(|e| JsError::new(&e))?;
     to_js(&Detailed::new(&cutter))
@@ -159,7 +267,9 @@ pub fn cutter_sanborn_detailed(options: &JsValue) -> Result<JsValue, JsError> {
 /// Throws when the options are malformed, no usable input was provided, or
 /// generation fails.
 #[wasm_bindgen(js_name = "cutterLoc")]
-pub fn cutter_loc(options: &JsValue) -> Result<String, JsError> {
+pub fn cutter_loc(
+    #[wasm_bindgen(unchecked_param_type = "LocOptions | null | undefined")] options: &JsValue,
+) -> Result<String, JsError> {
     let parsed: LocOptions = parse_options(options)?;
     loc_impl(&parsed)
         .map(|c| c.to_string())
@@ -172,8 +282,13 @@ pub fn cutter_loc(options: &JsValue) -> Result<String, JsError> {
 /// # Errors
 /// Throws when the options are malformed, no usable input was provided, or
 /// generation fails.
-#[wasm_bindgen(js_name = "cutterLocDetailed")]
-pub fn cutter_loc_detailed(options: &JsValue) -> Result<JsValue, JsError> {
+#[wasm_bindgen(
+    js_name = "cutterLocDetailed",
+    unchecked_return_type = "CutterLocDetailed"
+)]
+pub fn cutter_loc_detailed(
+    #[wasm_bindgen(unchecked_param_type = "LocOptions | null | undefined")] options: &JsValue,
+) -> Result<JsValue, JsError> {
     let parsed: LocOptions = parse_options(options)?;
     let cutter = loc_impl(&parsed).map_err(|e| JsError::new(&e))?;
     to_js(&Detailed::new(&cutter))
@@ -205,7 +320,7 @@ mod tests {
             let cutter = sanborn_impl(&options).unwrap();
             assert_eq!(cutter.to_string(), "D548o");
 
-            let parts = csan::detailed_json(&cutter).unwrap();
+            let parts = csan_core::detailed_json(&cutter).unwrap();
             assert_eq!(parts["alpha_prefix"], "D");
             assert_eq!(parts["numeric"], 548);
             assert_eq!(parts["alpha_suffix"], "o");
@@ -232,7 +347,10 @@ mod tests {
             };
             let cutter = loc_impl(&options).unwrap();
             assert_eq!(cutter.to_string(), "C378");
-            assert_eq!(csan::detailed_json(&cutter).unwrap()["alpha_prefix"], "C");
+            assert_eq!(
+                csan_core::detailed_json(&cutter).unwrap()["alpha_prefix"],
+                "C"
+            );
 
             let clamped = LocOptions {
                 surname: Some("Macdonald".to_owned()),
@@ -249,7 +367,7 @@ mod tests {
                 ..Default::default()
             };
             let err = sanborn_impl(&options).unwrap_err();
-            assert!(err.contains("familyName"), "unhelpful message: {err}");
+            assert!(err.contains("surname"), "unhelpful message: {err}");
 
             // The LoC path shares the same guard; check it independently.
             let loc_options = LocOptions {
@@ -257,10 +375,7 @@ mod tests {
                 ..Default::default()
             };
             let loc_err = loc_impl(&loc_options).unwrap_err();
-            assert!(
-                loc_err.contains("givenName"),
-                "unhelpful message: {loc_err}"
-            );
+            assert!(loc_err.contains("forename"), "unhelpful message: {loc_err}");
         }
 
         #[test]
@@ -270,10 +385,34 @@ mod tests {
                 ..Default::default()
             })
             .unwrap();
-            let parts = csan::detailed_json(&cutter).unwrap();
+            let parts = csan_core::detailed_json(&cutter).unwrap();
             assert_eq!(parts["alpha_prefix"], "C");
             assert_eq!(parts["numeric"], 378);
             assert_eq!(parts["formatted"], "C378");
+        }
+
+        #[test]
+        fn unknown_option_keys_are_rejected() {
+            // A misspelled or stale key (here the pre-rename `givenName`)
+            // must fail loudly: ignoring it would silently cutter on the
+            // remaining fields (e.g. the title) and return a wrong number.
+            use serde::de::value::{Error, MapDeserializer};
+            let fields = [("givenName", "Charles"), ("title", "Oliver Twist")];
+            let sanborn = AllKeys::<SanbornOptions>::deserialize(MapDeserializer::<_, Error>::new(
+                fields.into_iter(),
+            ));
+            let err = sanborn.err().unwrap().to_string();
+            assert!(err.contains("givenName"), "unhelpful message: {err}");
+
+            // `prefixLen` is a Cutter-Sanborn knob; the LoC options reject it.
+            let loc = AllKeys::<LocOptions>::deserialize(MapDeserializer::<_, Error>::new(
+                [("prefixLen", "2")].into_iter(),
+            ));
+            let loc_err = loc.err().unwrap().to_string();
+            assert!(
+                loc_err.contains("prefixLen"),
+                "unhelpful message: {loc_err}"
+            );
         }
 
         #[test]
@@ -366,9 +505,6 @@ mod tests {
             assert_eq!(field_f64(&value, "numeric"), Some(732.0));
             assert_eq!(field_str(&value, "entry").as_deref(), Some("Borg"));
             assert_eq!(field_str(&value, "formatted").as_deref(), Some("B732"));
-            // No work mark without a title. The shared `Detailed` adapter
-            // serializes an absent suffix through `serde_json`, so the field
-            // is present as JS `null` (not `undefined`).
             // No work mark without a title. serde-wasm-bindgen serializes an
             // absent suffix (JSON null, from the shared `Detailed` adapter) as
             // JS `undefined`, so the value round-trips as `undefined`.
@@ -408,6 +544,21 @@ mod tests {
         fn missing_input_throws() {
             assert!(cutter_sanborn(&JsValue::UNDEFINED).is_err());
             assert!(cutter_loc(&opts(&Options::default())).is_err());
+        }
+
+        #[wasm_bindgen_test]
+        fn non_object_options_throw() {
+            assert!(cutter_loc(&JsValue::from_str("Carter")).is_err());
+            assert!(cutter_sanborn(&JsValue::from_f64(1.0)).is_err());
+        }
+
+        #[wasm_bindgen_test]
+        fn unknown_option_keys_throw() {
+            let arg = js_sys::Object::new();
+            js_sys::Reflect::set(&arg, &"givenName".into(), &"Charles".into()).unwrap();
+            js_sys::Reflect::set(&arg, &"title".into(), &"Oliver Twist".into()).unwrap();
+            assert!(cutter_sanborn(&arg).is_err());
+            assert!(cutter_loc(&arg).is_err());
         }
 
         #[wasm_bindgen_test]

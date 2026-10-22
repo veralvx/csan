@@ -198,11 +198,11 @@ impl CutterGenerator for CutterLocMethod {
     ///
     /// # Examples
     /// ```
-    /// # use csan::catalog::models::author::Author;
-    /// # use csan::catalog::models::opus::Opus;
-    /// # use csan::catalog::models::cutter::CutterLoc;
-    /// # use csan::catalog::models::entry::Attribution;
-    /// # use csan::catalog::cutter::generator::{CutterGenerator, CutterLocMethod, CutterConfig};
+    /// # use csan_core::catalog::models::author::Author;
+    /// # use csan_core::catalog::models::opus::Opus;
+    /// # use csan_core::catalog::models::cutter::CutterLoc;
+    /// # use csan_core::catalog::models::entry::Attribution;
+    /// # use csan_core::catalog::cutter::generator::{CutterGenerator, CutterLocMethod, CutterConfig};
     ///
     /// // Standard consonant rule: C -> a(3) -> r(7) -> t(8)
     /// let aut_attr = Attribution::AuthorOnly(Author::surname_only("Carter"));

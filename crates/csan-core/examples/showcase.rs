@@ -2,7 +2,7 @@
 //! authors, using both generation methods with default configuration.
 //!
 //! Run with: `cargo run --example showcase`
-use csan::{
+use csan_core::{
     Attribution, Author, CutterConfig, CutterGenerator, CutterLocMethod, CutterSanbornMethod,
     NormalizationError,
 };

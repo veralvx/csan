@@ -2,24 +2,35 @@
 name = "csan"
 version.workspace = true
 authors.workspace = true
-categories = ["text-processing"]
-documentation.workspace = true
+categories = [
+  "command-line-utilities",
+  "command-line-interface",
+  "text-processing",
+]
+documentation = "https://docs.rs/csan"
 edition.workspace = true
 keywords.workspace = true
 license.workspace = true
 readme.workspace = true
 repository.workspace = true
-description = "Cutter call number generation (Cutter-Sanborn and Library of Congress) for library cataloging"
+rust-version.workspace = true
+description = "Command-line Cutter call number generator (Cutter-Sanborn and Library of Congress)"
 
 [lints]
 workspace = true
 
+[[bin]]
+name = "csan"
+path = "src/main.rs"
+# The binary is a thin shell over the library; skipping its rustdoc also
+# avoids the doc output-filename collision with this package's own `csan`
+# lib target (rust-lang/cargo#6313).
+doc = false
+
 [dependencies]
-derive_more = { workspace = true }
-serde = { workspace = true }
+clap = { workspace = true }
+csan-core = { workspace = true }
 serde_json = { workspace = true }
 
-[dev-dependencies]
-
 [package.metadata.dist]
-dist = false
+dist = true
