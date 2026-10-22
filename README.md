@@ -1,10 +1,5 @@
 # csan
 
-[![crates.io](https://img.shields.io/crates/v/csan.svg)](https://crates.io/crates/csan)
-[![PyPI](https://img.shields.io/pypi/v/csan.svg)](https://pypi.org/project/csan/)
-[![npm](https://img.shields.io/npm/v/@veralvx/csan.svg)](https://www.npmjs.com/package/@veralvx/csan)
-[![CI](https://github.com/veralvx/csan/actions/workflows/rust-ci.yml/badge.svg)](https://github.com/veralvx/csan/actions/workflows/rust-ci.yml)
-
 `csan` generates Cutter-Sanborn and Library of Congress cutter numbers for
 library cataloging from author names and titles. It is a command-line tool
 and a library for Rust, Python, JavaScript (npm), and Typst.
