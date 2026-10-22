@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.6.0"
+version = "0.6.1"
 authors = ["VERALVX <veralvx@veralvx.com>"]
 # crates.io allows a maximum of 5 categories, chosen from the fixed slug
 # list at https://crates.io/category_slugs
@@ -21,7 +21,7 @@ rust-version = "1.97"
 [workspace.dependencies]
 ciborium = "0.2.2"
 clap = { version = "4.5", features = ["derive"] }
-csan-core = { path = "crates/csan-core", version = "0.6.0" }
+csan-core = { path = "crates/csan-core", version = "0.6.1" }
 derive_more = { version = "2.1", features = ["display", "error"] }
 js-sys = "0.3"
 pyo3 = { version = "0.30.1", features = ["extension-module", "abi3-py39"] }

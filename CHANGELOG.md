@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-10-22
+
+### Changed
+
+- Name the Node package @veralvx/csan
+- Publish @veralvx/csan to npm after each successful release
+- Publish csan-core and csan to crates.io after each release
+- Pin the npm major used for publishing
+- Merge pull request #8 from veralvx/claude/youthful-brahmagupta-6rcrfr
+
 ## [0.6.0] - 2026-10-22
 
 ### Changed
