@@ -107,8 +107,13 @@ npm-build-node:
 npm-test: npm-build-node
   node {{ WEB_CRATE_DIR }}/examples/node-demo.cjs
   node {{ WEB_CRATE_DIR }}/examples/smoke-test.cjs
-  # The generated TypeScript declarations (fetches the TypeScript compiler).
-  npx --yes --package typescript@5 -- tsc --noEmit --strict \
+
+[doc("Type-check the Node npm package's TypeScript declarations (requires wasm-pack and npx; downloads the pinned TypeScript)")]
+[group("Bindings")]
+npm-types: npm-build-node
+  # A pinned compiler, outside npm-pack's chain: the release tarball never
+  # depends on code fetched for this check.
+  npx --yes --package typescript@5.9.3 -- tsc --noEmit --strict \
     --module nodenext --moduleResolution nodenext --target es2022 \
     {{ WEB_CRATE_DIR }}/examples/types-check.ts
 

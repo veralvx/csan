@@ -87,7 +87,8 @@ rustup target add wasm32-unknown-unknown
 cargo install wasm-pack        # or: npm i -g wasm-pack
 
 just npm-build-node   # the npm package, in crates/csan-web/pkg-node
-just npm-test         # ... then run the demo, smoke, and type tests
+just npm-test         # ... then run the demo and smoke tests
+just npm-types        # ... type-check its TypeScript declarations
 just npm-tty-parity   # ... compare its command with the native binary
 just npm-pack         # ... then pack the release tarball
 

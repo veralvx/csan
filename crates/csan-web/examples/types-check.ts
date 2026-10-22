@@ -1,6 +1,9 @@
-// Type-checks the generated TypeScript declarations (`just npm-test` runs
+// Type-checks the generated TypeScript declarations (`just npm-types` runs
 // `tsc --noEmit --strict` on this file after building the package). It is
 // compiled, never run.
+//
+// Each `@ts-expect-error` must be needed: if a declaration degrades to
+// `any`, the line compiles, the directive goes unused, and tsc fails.
 
 import {
   type CliResult,
@@ -22,16 +25,54 @@ const sanbornParts: CutterSanbornDetailed = cutterSanbornDetailed({
 });
 const locParts: CutterLocDetailed = cutterLocDetailed(null);
 
+// The detailed results carry their typed fields.
+const prefix: string = sanbornParts.alpha_prefix + locParts.alpha_prefix;
+const numeric: number = sanbornParts.numeric + locParts.numeric;
+const suffix: string | undefined = sanbornParts.alpha_suffix;
+const entry: string = sanbornParts.entry;
+const formatted: string = sanbornParts.formatted + locParts.formatted;
+
 // runCli takes the arguments and, optionally, the styling.
 const result: CliResult = runCli(["--help"]);
 const styled: CliResult = runCli(["--method", "dewey"], { stderr: true });
 const code: number = result.code + styled.code;
+const output: string = result.stdout + styled.stderr;
 
+// The results are not `any`.
+// @ts-expect-error: a CliResult is not a string.
+const notText: string = runCli([]);
+// @ts-expect-error: a call number is not a number.
+const notNumber: number = cutterLoc();
+// @ts-expect-error: the LoC parts have no work mark.
+const noSuffix = cutterLocDetailed().alpha_suffix;
+// @ts-expect-error: the Sanborn parts' numeric is a number.
+const notNumeric: string = cutterSanbornDetailed().numeric;
+
+// The options are checked.
 // @ts-expect-error: a misspelled option key is a type error.
 cutterSanborn({ givenName: "Charles" });
 // @ts-expect-error: `prefixLen` is not a Library of Congress option.
 cutterLoc({ surname: "Carter", prefixLen: 2 });
 // @ts-expect-error: unknown styling key.
 runCli([], { colour: true });
+// @ts-expect-error: the arguments are strings.
+runCli([42]);
 
-export { code, loc, locParts, plain, sanborn, sanbornParts };
+export {
+  code,
+  entry,
+  formatted,
+  loc,
+  locParts,
+  noSuffix,
+  notNumber,
+  notNumeric,
+  notText,
+  numeric,
+  output,
+  plain,
+  prefix,
+  sanborn,
+  sanbornParts,
+  suffix,
+};
