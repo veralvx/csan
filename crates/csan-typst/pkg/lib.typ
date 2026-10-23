@@ -1,8 +1,9 @@
 // csan — Cutter call numbers (Cutter-Sanborn and Library of Congress).
 //
 // Thin Typst wrappers around the csan_typst WASM plugin. Both functions
-// accept an author (given/family), a title, or both; blank strings count
-// as absent. Errors from the plugin surface as Typst diagnostics.
+// accept an author (forename, surname, or both), a title, or both; blank
+// strings count as absent. Errors from the plugin surface as Typst
+// diagnostics.
 
 #let _plugin = plugin("csan_typst.wasm")
 
@@ -24,8 +25,8 @@
 
 /// Cutter-Sanborn three-figure call number.
 ///
-/// - forename (str, none): The author's given (first) name.
-/// - surname (str, none): The author's family (last) name.
+/// - forename (str, none): The author's forename.
+/// - surname (str, none): The author's surname.
 /// - title (str, none): The work's title. Required when no author is
 ///   given; with an author it contributes the lowercase work mark.
 /// - prefix-len (int, none): Letters taken from the name for the call
@@ -60,8 +61,8 @@
 
 /// Library of Congress cutter number.
 ///
-/// - forename (str, none): The author's given (first) name.
-/// - surname (str, none): The author's family (last) name.
+/// - forename (str, none): The author's forename.
+/// - surname (str, none): The author's surname.
 /// - title (str, none): The work's title; used when no author is given.
 /// - max-len (int, none): Requested number of digits, clamped to 4 by the
 ///   plugin (plugin default: 3).

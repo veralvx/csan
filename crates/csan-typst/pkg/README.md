@@ -73,8 +73,8 @@ cutter-sanborn(
 
 | Parameter    | Default | Description                                                                   |
 | ------------ | ------- | ----------------------------------------------------------------------------- |
-| `forename`   | `none`  | The author's given name.                                                      |
-| `surname`    | `none`  | The author's family name.                                                     |
+| `forename`   | `none`  | The author's forename.                                                        |
+| `surname`    | `none`  | The author's surname.                                                         |
 | `title`      | `none`  | The work's title: the work mark, or the whole number when there is no author. |
 | `prefix-len` | `1`     | Letters of the name kept before the number (`prefix-len: 2` gives `Di548o`).  |
 | `suffix-len` | `1`     | Letters of the title in the work mark (`suffix-len: 2` gives `D548ol`).       |
@@ -106,8 +106,8 @@ cutter-loc(
 
 | Parameter  | Default | Description                                                       |
 | ---------- | ------- | ----------------------------------------------------------------- |
-| `forename` | `none`  | The author's given name.                                          |
-| `surname`  | `none`  | The author's family name.                                         |
+| `forename` | `none`  | The author's forename.                                            |
+| `surname`  | `none`  | The author's surname.                                             |
 | `title`    | `none`  | The work's title, cuttered when there is no author.               |
 | `max-len`  | `3`     | Number of digits, at most 4 (`max-len: 4` gives `D5354`).         |
 | `detailed` | `false` | Return the parts as a dictionary instead of the formatted string. |

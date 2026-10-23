@@ -68,7 +68,7 @@ impl EntryArgs {
     ///
     /// Delegates to [`Attribution::from_parts`], so blank strings are
     /// treated as absent — per field: `{"author": {"surname": " ",
-    /// "forename": "Prince"}}` cutters on the given name, and
+    /// "forename": "Prince"}}` cutters on the forename, and
     /// `{"author": {"surname": " "}, "title": "Dune"}` falls back to a
     /// title-derived cutter instead of erroring.
     fn attribution(self) -> Result<Attribution, String> {
@@ -174,16 +174,19 @@ mod tests {
         encode(&map)
     }
 
-    fn author(given: Option<&str>, family: Option<&str>) -> Value {
+    fn author(forename: Option<&str>, surname: Option<&str>) -> Value {
         let mut entries = Vec::new();
-        if let Some(g) = given {
+        if let Some(name) = forename {
             entries.push((
                 Value::Text("forename".to_owned()),
-                Value::Text(g.to_owned()),
+                Value::Text(name.to_owned()),
             ));
         }
-        if let Some(f) = family {
-            entries.push((Value::Text("surname".to_owned()), Value::Text(f.to_owned())));
+        if let Some(name) = surname {
+            entries.push((
+                Value::Text("surname".to_owned()),
+                Value::Text(name.to_owned()),
+            ));
         }
         Value::Map(entries)
     }
@@ -267,7 +270,7 @@ mod tests {
 
     #[test]
     fn blank_field_beside_usable_field_is_ignored() {
-        // A blank family name must not poison a usable given name.
+        // A blank surname must not poison a usable forename.
         let payload = args(&[("author", author(Some("Prince"), Some("   ")))]);
         assert_eq!(cutter_loc_fmt(&payload).unwrap(), b"P756");
     }
