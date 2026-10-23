@@ -28,6 +28,8 @@ Both functions return a string (unless `detailed: true`), so the result can
 go anywhere text can, for example on a spine label under a class number:
 
 ```typ
+#import "@preview/csan:0.7.1": cutter-sanborn
+
 #box(stroke: 0.5pt, inset: 8pt)[
   823.8 \
   #cutter-sanborn(forename: "Charles", surname: "Dickens", title: "Oliver Twist")
@@ -58,7 +60,7 @@ numeral (`100 best recipes` → `A153`).
 
 ### `cutter-sanborn`
 
-```typ
+```text
 cutter-sanborn(
   forename: str | none,
   surname: str | none,
@@ -83,6 +85,8 @@ With `detailed: true`, the result has the keys `alpha_prefix`, `numeric`,
 matched), and `formatted`:
 
 ```typ
+#import "@preview/csan:0.7.1": cutter-sanborn
+
 #cutter-sanborn(surname: "Borges", detailed: true)
 // -> (alpha_prefix: "B", alpha_suffix: none, entry: "Borg",
 //     numeric: 732, formatted: "B732")
@@ -90,7 +94,7 @@ matched), and `formatted`:
 
 ### `cutter-loc`
 
-```typ
+```text
 cutter-loc(
   forename: str | none,
   surname: str | none,
@@ -116,7 +120,7 @@ and `formatted`, e.g. `(alpha_prefix: "C", numeric: 378, formatted: "C378")`.
 At least one of `surname`, `forename`, or `title` must be given and not
 blank (blank strings count as missing). Otherwise compilation stops with:
 
-```
+```text
 error: plugin errored with: at least one of `author` or `title` must be provided and non-blank
 ```
 

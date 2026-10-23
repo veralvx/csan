@@ -1,7 +1,8 @@
-// Assert-based test suite for the csan Typst package.
-// Compile with: typst compile --root .. tests/test.typ (from pkg/)
+// Assert-based test suite for the csan Typst package: a tytanic
+// compile-only test (`just typst test`), which passes when every assert
+// holds.
 
-#import "../lib.typ": cutter-sanborn, cutter-loc
+#import "/lib.typ": cutter-loc, cutter-sanborn
 
 // --- Cutter-Sanborn: formatted strings -------------------------------
 #assert.eq(

@@ -2,9 +2,11 @@ name: Nix
 
 # The flake's formatter (`nix fmt`), then its checks (flake.nix): clippy,
 # rustfmt, rustdoc, the csan binary with its tests, the format and both dev
-# shells, built in the sandbox with the toolchain rust-toolchain.toml pins,
-# on x86_64 and aarch64 Linux and aarch64 macOS -- the flake's systems, so
-# each is built natively and none is first built by a user.
+# shells, built in the sandbox with the toolchain rust-toolchain.toml pins;
+# the Typst package's harness (its pins, tests, checks and shell) and the
+# workflows (actionlint) -- on x86_64 and aarch64 Linux and aarch64 macOS,
+# the flake's systems, so each is built natively and none is first built by
+# a user.
 
 on:
   push:
@@ -17,7 +19,9 @@ on:
       - "rust-toolchain.toml"
       - "flake.nix"
       - "flake.lock"
-      - ".github/workflows/nix.yml"
+      - "crates/csan-typst/**"
+      - ".github/actionlint.yaml"
+      - ".github/workflows/**"
   # every pull request, whatever it touches: a required check that never
   # reports blocks the merge, and these are the checks Dependabot's
   # flake.lock updates auto-merge on

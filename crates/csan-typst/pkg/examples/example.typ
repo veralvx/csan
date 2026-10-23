@@ -1,5 +1,6 @@
 // Example document for the csan Typst package.
-// Compile with `just typst-example` (renders examples/example.png).
+// `just typst figures` renders it to examples/example.png, which the README
+// shows; `just typst examples-check` compiles it against the bundle.
 
 #import "@preview/csan:0.7.1": cutter-loc, cutter-sanborn
 
@@ -7,6 +8,7 @@
 
 = Cutter call numbers with csan
 
+// @typstyle off: a row of the table to a line
 #table(
   columns: 4,
   table.header([*Author*], [*Title*], [*Cutter-Sanborn*], [*LoC*]),
@@ -31,5 +33,9 @@ A spine label for _Oliver Twist_, classed at Dewey 823.8:
 
 #box(stroke: 0.5pt, inset: 8pt, align(center, text(font: "DejaVu Sans Mono")[
   823.8 \
-  #cutter-sanborn(forename: "Charles", surname: "Dickens", title: "Oliver Twist")
+  #cutter-sanborn(
+    forename: "Charles",
+    surname: "Dickens",
+    title: "Oliver Twist",
+  )
 ]))

@@ -1,0 +1,4 @@
+# Not for typst/packages (`just typst bundle` archives this directory): the
+# tests, and this file
+/tests export-ignore
+/.gitattributes export-ignore
