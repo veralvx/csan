@@ -212,12 +212,15 @@ jobs:
           sudo mv /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst
           typst --version
 
+      - name: Install just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
+      # the test document, and the example, whose `@preview/csan` import
+      # the recipe serves from this checkout
       - name: Run the plugin test documents
-        run: |
-          typst compile --root crates/csan-typst/pkg \
-            crates/csan-typst/pkg/tests/test.typ /tmp/csan-test.pdf
-          typst compile --root crates/csan-typst/pkg \
-            crates/csan-typst/pkg/examples/example.typ /tmp/csan-example.pdf
+        run: just typst-test
 
   python-package:
     name: Python package (wheel build + pytest)

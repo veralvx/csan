@@ -1,7 +1,7 @@
 // Example document for the csan Typst package.
-// Compile with: typst compile --root . examples/example.typ (from pkg/)
+// Compile with `just typst-example` (renders examples/example.png).
 
-#import "../lib.typ": cutter-loc, cutter-sanborn
+#import "@preview/csan:0.7.1": cutter-loc, cutter-sanborn
 
 #set page(width: auto, height: auto, margin: 1cm, fill: white)
 

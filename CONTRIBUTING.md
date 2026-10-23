@@ -141,8 +141,8 @@ The Typst package is published by hand, with a pull request to
    downloaded bundle.
 2. `just release` has already set the version in `typst.toml` and in the
    README's `@preview/csan:<version>` import.
-3. If the example changed, re-render the image first:
-   `typst compile --root crates/csan-typst/pkg --ppi 144 crates/csan-typst/pkg/examples/example.typ crates/csan-typst/pkg/examples/example.png`.
+3. If the example changed, re-render its image first with
+   `just typst-example`.
 
 ## Creating a Pull Request
 
