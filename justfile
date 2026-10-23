@@ -62,10 +62,23 @@ typst-pack out=DIST_EXTRA_DIR: wasm typst-test
 
 [doc("Compile the Typst package's assert-based test document (requires `typst`)")]
 [group("WASM")]
-typst-test:
+typst-test: (typst-example "/tmp/csan-example.pdf")
   typst compile --root {{ TYPST_PKG_DIR }} {{ TYPST_PKG_DIR }}/tests/test.typ /tmp/csan-test.pdf
-  typst compile --root {{ TYPST_PKG_DIR }} {{ TYPST_PKG_DIR }}/examples/example.typ /tmp/csan-example.pdf
   @echo "Typst plugin test suite passed."
+
+[doc("Compile the Typst package's example (`.pdf` or `.png` output, by extension)")]
+[group("WASM")]
+typst-example out=(TYPST_PKG_DIR / "examples/example.png"):
+  #!/usr/bin/env bash
+  set -euo pipefail
+  # The example imports `@preview/csan:<version>`, as a user's document
+  # would: serve that import from this checkout, not from Typst Universe
+  version="$(awk -F'"' '/^version[[:space:]]*=/ { print $2; exit }' {{ TYPST_PKG_DIR }}/typst.toml)"
+  packages="$(mktemp -d)"
+  trap 'rm -rf "$packages"' EXIT
+  mkdir -p "$packages/preview/csan"
+  ln -s "$PWD/{{ TYPST_PKG_DIR }}" "$packages/preview/csan/$version"
+  typst compile --package-path "$packages" --ppi 144 {{ TYPST_PKG_DIR }}/examples/example.typ "{{ out }}"
 
 # ---------------------------------------------------------------- Bindings
 
@@ -281,12 +294,13 @@ release semver:
 
   # If anything below fails before the commit, restore the modified files.
   # Uses HEAD (not index) so cleanup works even after git-add.
-  release_files=(Cargo.toml Cargo.lock CHANGELOG.md crates/csan-typst/pkg/typst.toml)
-  trap 'echo "Release aborted — restoring modified files." >&2; rm -f Cargo.toml.tmp typst.toml.tmp; git checkout HEAD -- "${release_files[@]}" 2>/dev/null' ERR
+  release_files=(Cargo.toml Cargo.lock CHANGELOG.md crates/csan-typst/pkg/typst.toml crates/csan-typst/pkg/README.md crates/csan-typst/pkg/examples/example.typ)
+  trap 'echo "Release aborted — restoring modified files." >&2; rm -f Cargo.toml.tmp typst.toml.tmp import.tmp; git checkout HEAD -- "${release_files[@]}" 2>/dev/null' ERR
 
   # 5. Bump the version. Every crate inherits `[workspace.package] version`;
   #    the `csan-core` workspace dependency pins the same version (needed to
-  #    publish `csan` against it), and the Typst package manifest follows.
+  #    publish `csan` against it), and the Typst package manifest and its
+  #    README's import follow.
   #    Each edit must hit exactly the expected lines, or the release stops
   #    (awk and mv are separate statements so that `set -e` and the ERR
   #    trap see a failing awk; on the left of `&&` it would be ignored).
@@ -311,6 +325,15 @@ release semver:
     END { if (hits != 1) { print "Error: no [package] version in typst.toml" > "/dev/stderr"; exit 1 } }
   ' crates/csan-typst/pkg/typst.toml > typst.toml.tmp
   mv typst.toml.tmp crates/csan-typst/pkg/typst.toml
+  # The `@preview/csan:<version>` imports of the Typst package's README
+  # (its Typst Universe page) and example
+  for file in crates/csan-typst/pkg/README.md crates/csan-typst/pkg/examples/example.typ; do
+    awk -v ver="$raw_version" -v file="$file" '
+      { hits += gsub(/@preview\/csan:[0-9]+\.[0-9]+\.[0-9]+/, "@preview/csan:" ver); print }
+      END { if (!hits) { print "Error: no @preview/csan import in " file > "/dev/stderr"; exit 1 } }
+    ' "$file" > import.tmp
+    mv import.tmp "$file"
+  done
 
   # 6. Refresh the workspace members' versions in Cargo.lock
   cargo update --workspace

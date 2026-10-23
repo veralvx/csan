@@ -128,6 +128,22 @@ tag's Release run, since crates.io trusted publishing does not accept
 `workflow_run` events. Each workflow can also be run by hand for a release
 tag, and skips whatever that release already published.
 
+### Typst Universe
+
+The Typst package is published by hand, with a pull request to
+[typst/packages](https://github.com/typst/packages) after the release:
+
+1. Copy `crates/csan-typst/pkg` from the release tag to
+   `packages/preview/csan/<version>/` in a fork of typst/packages, without
+   `tests/` (Typst Universe asks that test files not be submitted).
+   `examples/` stays: the README links `examples/example.typ` and shows
+   `examples/example.png`, and `typst.toml` already excludes it from the
+   downloaded bundle.
+2. `just release` has already set the version in `typst.toml` and in the
+   README's `@preview/csan:<version>` import.
+3. If the example changed, re-render its image first with
+   `just typst-example`.
+
 ## Creating a Pull Request
 
 1. Ensure your code passes `just checks` locally.
