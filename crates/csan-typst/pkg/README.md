@@ -69,14 +69,14 @@ cutter-sanborn(
 ) -> str | dictionary
 ```
 
-| Parameter    | Default | Description                                                                                |
-| ------------ | ------- | ------------------------------------------------------------------------------------------ |
-| `forename`   | `none`  | The author's given name.                                                                   |
-| `surname`    | `none`  | The author's family name.                                                                  |
-| `title`      | `none`  | The work's title: the work mark, or the whole number when there is no author.              |
-| `prefix-len` | `1`     | Letters of the name kept before the number (`prefix-len: 2` gives `Di548o`).               |
-| `suffix-len` | `1`     | Letters of the title in the work mark (`suffix-len: 2` gives `D548ol`).                    |
-| `detailed`   | `false` | Return the parts as a dictionary instead of the formatted string.                          |
+| Parameter    | Default | Description                                                                   |
+| ------------ | ------- | ----------------------------------------------------------------------------- |
+| `forename`   | `none`  | The author's given name.                                                      |
+| `surname`    | `none`  | The author's family name.                                                     |
+| `title`      | `none`  | The work's title: the work mark, or the whole number when there is no author. |
+| `prefix-len` | `1`     | Letters of the name kept before the number (`prefix-len: 2` gives `Di548o`).  |
+| `suffix-len` | `1`     | Letters of the title in the work mark (`suffix-len: 2` gives `D548ol`).       |
+| `detailed`   | `false` | Return the parts as a dictionary instead of the formatted string.             |
 
 With `detailed: true`, the result has the keys `alpha_prefix`, `numeric`,
 `alpha_suffix` (`none` without a work mark), `entry` (the table entry that
