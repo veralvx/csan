@@ -12,16 +12,25 @@
 #   nix fmt              nixfmt, through treefmt; `nix fmt -- --ci` formats,
 #                        and fails if that changed a file
 #   nix flake check      clippy, rustfmt, rustdoc and the binary's tests, the
-#                        format (`nix fmt`'s verdict) and both dev shells,
-#                        offline in the sandbox; CI runs it on every system
-#                        below (.github/workflows/nix.yml)
+#                        format (`nix fmt`'s verdict) and both dev shells;
+#                        the Typst package's harness (crates/csan-typst):
+#                        its tools' pins, its tests (tytanic), its checks
+#                        (`just typst ...`: the bundle, typst-package-check,
+#                        the README's and the examples' Typst, the figures,
+#                        tinymist's lint) and its justfile's shell; and the
+#                        workflows (actionlint) -- offline in the sandbox;
+#                        CI runs it on every system below
+#                        (.github/workflows/nix.yml)
 #
 # The package is the CLI alone (crates/csan, with crates/csan-core): the
 # Python, npm and Typst bindings are built by their own tools (see the
 # justfile), and released by the Release workflow.
 #
-# flake.lock pins nixpkgs and rust-overlay: commit it; `nix flake update`
-# moves it, and Dependabot does weekly (.github/dependabot.yml).
+# flake.lock pins nixpkgs, rust-overlay and typst-package-check: commit it;
+# `nix flake update` moves it, and Dependabot does weekly
+# (.github/dependabot.yml). The Typst harness's tools are pinned in
+# crates/csan-typst/tools.toml too: after an update, the `typst-pins` check
+# names each one that moved, for tools.toml.
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -29,10 +38,20 @@
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # typst/packages' own checker, at its tag: nixpkgs has no build of it
+    package-check = {
+      url = "github:typst/package-check/v0.7.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
-    { nixpkgs, rust-overlay, ... }:
+    {
+      nixpkgs,
+      rust-overlay,
+      package-check,
+      ...
+    }:
     let
       inherit (nixpkgs) lib;
       # the Release workflow's targets, less Windows and Intel macOS:
@@ -50,6 +69,8 @@
       inherit (manifest.workspace.package) version license repository;
       cargoPackage = (lib.importTOML ./crates/csan/Cargo.toml).package;
       pname = cargoPackage.name;
+      # the Typst harness's tools, at the versions this flake provides
+      typstPins = lib.importTOML ./crates/csan-typst/tools.toml;
 
       # what a build reads: the repository less its tooling and contributor
       # docs, so editing those rebuilds nothing, while a new crate or test is
@@ -68,6 +89,9 @@
               ./SECURITY.md
               ./cliff.toml
               ./cog.toml
+              ./crates/csan-typst/justfile
+              ./crates/csan-typst/pkg
+              ./crates/csan-typst/tools.toml
               ./dist-workspace.toml
               ./dprint.json
               ./flake.lock
@@ -87,18 +111,98 @@
             cargo = toolchain;
             rustc = toolchain;
           };
-          # `nix fmt`: the Nix. The Rust is rustfmt's (`just fmt`), the
-          # Markdown, TOML and JSON dprint's.
+          # `nix fmt`: the Nix, the Typst (typstyle) and the Typst harness's
+          # justfile (just's own, as `just --fmt` takes one file). The Rust
+          # is rustfmt's (`just fmt`), the Markdown, TOML and JSON dprint's.
           formatter = pkgs.treefmt.withConfig {
             settings = {
               on-unmatched = "info";
-              formatter.nixfmt = {
-                command = "nixfmt";
-                includes = [ "*.nix" ];
+              formatter = {
+                nixfmt = {
+                  command = "nixfmt";
+                  includes = [ "*.nix" ];
+                };
+                typstyle = {
+                  command = "typstyle";
+                  options = [ "--inplace" ];
+                  includes = [ "*.typ" ];
+                };
+                just = {
+                  command = "just";
+                  options = [
+                    "--fmt"
+                    "--unstable"
+                    "--justfile"
+                  ];
+                  includes = [ "crates/csan-typst/justfile" ];
+                };
               };
             };
-            runtimeInputs = [ pkgs.nixfmt ];
+            runtimeInputs = [
+              pkgs.nixfmt
+              pkgs.typstyle
+              pkgs.just
+            ];
           };
+          # The Typst harness (crates/csan-typst/justfile): the tools
+          # tools.toml pins, each the version this flake provides
+          typst-package-check = package-check.packages.${pkgs.stdenv.hostPlatform.system}.default;
+          typstTools = {
+            inherit (pkgs)
+              typst
+              tytanic
+              typstyle
+              tinymist
+              just
+              shellcheck
+              shfmt
+              actionlint
+              ;
+            inherit typst-package-check;
+          };
+          stalePins = lib.filter (name: (typstPins.${name} or null) != typstTools.${name}.version) (
+            lib.attrNames typstTools
+          );
+          unknownPins = lib.subtractLists (lib.attrNames typstTools) (lib.attrNames typstPins);
+          # what the harness reads: its justfile, its pins and the package,
+          # so an edit elsewhere reruns none of its checks (its
+          # `versions-check` sees the package's imports alone here; Rust
+          # CI's Typst job checks the whole repository's)
+          typstSource = lib.fileset.toSource {
+            root = ./.;
+            fileset = lib.fileset.unions [
+              ./crates/csan-typst/justfile
+              ./crates/csan-typst/tools.toml
+              ./crates/csan-typst/pkg
+            ];
+          };
+          # a harness check: RECIPES of crates/csan-typst/justfile on a copy
+          # of typstSource, in a repository of its own with a commit (the
+          # bundle is git's files). The sandbox has no /usr/bin/env, which
+          # the script recipes name: their bash is named by its path instead.
+          typstCheck =
+            name: recipes:
+            pkgs.runCommand "typst-${name}"
+              {
+                nativeBuildInputs = lib.attrValues typstTools ++ [
+                  pkgs.jq
+                  pkgs.gitMinimal
+                ];
+              }
+              ''
+                cp -r ${typstSource} "$TMPDIR/repository"
+                chmod -R u+w "$TMPDIR/repository"
+                cd "$TMPDIR/repository"
+                export HOME="$TMPDIR"
+                substituteInPlace crates/csan-typst/justfile \
+                  --replace-fail '#!/usr/bin/env bash' '#!${pkgs.bash}/bin/bash'
+                git init --quiet
+                git add --all
+                git -c user.name=check -c user.email=check@localhost commit --quiet -m check
+                cd crates/csan-typst
+                just ${recipes}
+                touch $out
+              '';
           common = {
             inherit version src;
             cargoLock.lockFile = ./Cargo.lock;
@@ -169,14 +273,17 @@
                 pkgs.cargo-dist
                 pkgs.nixfmt
                 # the bindings: Python (maturin, pytest), npm (wasm-pack,
-                # node, binaryen's wasm-opt) and the Typst package
+                # node, binaryen's wasm-opt)
                 pkgs.maturin
                 (pkgs.python3.withPackages (python: [ python.pytest ]))
                 pkgs.wasm-pack
                 pkgs.binaryen
                 pkgs.nodejs
-                pkgs.typst
-              ];
+              ]
+              # the Typst package's harness (`just typst ...`): typst,
+              # tytanic, typstyle, tinymist, typst-package-check, shellcheck,
+              # shfmt, actionlint, as crates/csan-typst/tools.toml pins them
+              ++ lib.attrValues typstTools;
             };
             # Miri runs on nightly only: rust-overlay's latest nightly that
             # ships it
@@ -198,6 +305,62 @@
         {
           packages.default = package;
           checks = {
+            # every pin is the version this flake provides; after `nix
+            # flake update`, the tools that moved, named for tools.toml
+            typst-pins =
+              pkgs.runCommand "typst-pins"
+                {
+                  report = lib.concatStringsSep "\n" (
+                    map (
+                      name:
+                      "${name}: crates/csan-typst/tools.toml pins ${typstPins.${name} or "none"}, the flake has ${typstTools.${name}.version}"
+                    ) stalePins
+                    ++ map (
+                      name: "${name}: pinned in crates/csan-typst/tools.toml, but no tool the flake provides"
+                    ) unknownPins
+                  );
+                }
+                ''
+                  if [ -n "$report" ]; then
+                    printf '%s\n' "$report" >&2
+                    exit 1
+                  fi
+                  touch $out
+                '';
+            # built, not just evaluated: nixpkgs carries no build of it, so
+            # a `nix flake update` its build no longer accepts fails here
+            inherit typst-package-check;
+            # the Typst package's tests (tytanic), its checks and its
+            # justfile's shell (`just shell-check`)
+            typst-tests = typstCheck "tests" "test";
+            typst-package = typstCheck "package" "versions-check readme-check examples-check figures-check package-check lint";
+            typst-shell = typstCheck "shell" "shell-check";
+            # actionlint on a copy, in a repository of its own, as it runs
+            # from the root: with no file named, it finds the workflows, and
+            # .github/actionlint.yaml
+            workflows =
+              pkgs.runCommand "workflows"
+                {
+                  nativeBuildInputs = [
+                    pkgs.actionlint
+                    pkgs.shellcheck
+                    pkgs.gitMinimal
+                  ];
+                }
+                ''
+                  cp -r ${
+                    lib.fileset.toSource {
+                      root = ./.;
+                      fileset = ./.github;
+                    }
+                  } "$TMPDIR/repository"
+                  chmod -R u+w "$TMPDIR/repository"
+                  cd "$TMPDIR/repository"
+                  export HOME="$TMPDIR"
+                  git init --quiet
+                  actionlint
+                  touch $out
+                '';
             clippy = cargoCheck "clippy" "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings";
             fmt = cargoCheck "fmt" "cargo fmt --all -- --check";
             doc = cargoCheck "doc" "RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --all-features --locked --offline";

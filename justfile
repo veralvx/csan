@@ -1,6 +1,11 @@
 default:
   @just --list --unsorted
 
+# The Typst package's harness (crates/csan-typst/justfile): its tests, its
+# checks, its bundle and its local install, as `just typst <recipe>` (`just
+# typst` lists them)
+mod typst "crates/csan-typst"
+
 
 WASM_TARGET := "wasm32-unknown-unknown"
 WASM_PROFILE := "wasm"
@@ -55,22 +60,19 @@ typst-pack out=DIST_EXTRA_DIR: wasm typst-test
   cp {{ PLUGIN_WASM }} "{{ out }}/csan_typst.wasm"
   # Flat archive of the package as Typst expects it under
   # {data-dir}/typst/packages/local/csan/<version>/ (the tests and examples
-  # are excluded, as in typst.toml).
+  # are excluded, as in typst.toml, with the harness's files: the bundle it
+  # builds in dist/, and the .gitattributes that keeps the tests out of it).
   tar -czf "{{ out }}/csan_typst-$version.tar.gz" -C {{ TYPST_PKG_DIR }} \
-    --exclude=./tests --exclude=./examples --exclude='*.pdf' .
+    --exclude=./tests --exclude=./examples --exclude=./dist \
+    --exclude=./.gitattributes --exclude='*.pdf' .
   echo "Packed {{ out }}/csan_typst.wasm and {{ out }}/csan_typst-$version.tar.gz"
 
-[doc("Compile the Typst package's assert-based test document (requires `typst`)")]
+[doc("Compile the Typst package's assert-based tests and its example (requires `typst`; `just typst checks` runs the whole harness)")]
 [group("WASM")]
-typst-test: (typst-example "/tmp/csan-example.pdf")
-  typst compile --root {{ TYPST_PKG_DIR }} {{ TYPST_PKG_DIR }}/tests/test.typ /tmp/csan-test.pdf
-  @echo "Typst plugin test suite passed."
-
-[doc("Compile the Typst package's example (`.pdf` or `.png` output, by extension)")]
-[group("WASM")]
-typst-example out=(TYPST_PKG_DIR / "examples/example.png"):
+typst-test:
   #!/usr/bin/env bash
   set -euo pipefail
+  typst compile --root {{ TYPST_PKG_DIR }} {{ TYPST_PKG_DIR }}/tests/plugin/test.typ /tmp/csan-test.pdf
   # The example imports `@preview/csan:<version>`, as a user's document
   # would: serve that import from this checkout, not from Typst Universe
   version="$(awk -F'"' '/^version[[:space:]]*=/ { print $2; exit }' {{ TYPST_PKG_DIR }}/typst.toml)"
@@ -78,7 +80,8 @@ typst-example out=(TYPST_PKG_DIR / "examples/example.png"):
   trap 'rm -rf "$packages"' EXIT
   mkdir -p "$packages/preview/csan"
   ln -s "$PWD/{{ TYPST_PKG_DIR }}" "$packages/preview/csan/$version"
-  typst compile --package-path "$packages" --ppi 144 {{ TYPST_PKG_DIR }}/examples/example.typ "{{ out }}"
+  typst compile --package-path "$packages" {{ TYPST_PKG_DIR }}/examples/example.typ /tmp/csan-example.pdf
+  echo "Typst plugin test suite passed."
 
 # ---------------------------------------------------------------- Bindings
 
@@ -292,15 +295,27 @@ release semver:
     fi
   fi
 
+  # Every file that imports the Typst package as `@preview/csan:<version>`
+  # (the changelog's history aside): step 5 moves each to the new version,
+  # as Typst Universe asks of a release's examples
+  import_files=()
+  while IFS= read -r file; do
+    import_files+=("$file")
+  done < <(git grep -I -l -E '@preview/csan:[0-9]+\.[0-9]+\.[0-9]+' -- ':!CHANGELOG.md')
+  if [ "${#import_files[@]}" -eq 0 ]; then
+    echo "Error: no @preview/csan import found (the Typst package's README has one)" >&2
+    exit 1
+  fi
+
   # If anything below fails before the commit, restore the modified files.
   # Uses HEAD (not index) so cleanup works even after git-add.
-  release_files=(Cargo.toml Cargo.lock CHANGELOG.md crates/csan-typst/pkg/typst.toml crates/csan-typst/pkg/README.md crates/csan-typst/pkg/examples/example.typ)
+  release_files=(Cargo.toml Cargo.lock CHANGELOG.md crates/csan-typst/pkg/typst.toml "${import_files[@]}")
   trap 'echo "Release aborted — restoring modified files." >&2; rm -f Cargo.toml.tmp typst.toml.tmp import.tmp; git checkout HEAD -- "${release_files[@]}" 2>/dev/null' ERR
 
   # 5. Bump the version. Every crate inherits `[workspace.package] version`;
   #    the `csan-core` workspace dependency pins the same version (needed to
   #    publish `csan` against it), and the Typst package manifest and its
-  #    README's import follow.
+  #    imports follow.
   #    Each edit must hit exactly the expected lines, or the release stops
   #    (awk and mv are separate statements so that `set -e` and the ERR
   #    trap see a failing awk; on the left of `&&` it would be ignored).
@@ -325,9 +340,7 @@ release semver:
     END { if (hits != 1) { print "Error: no [package] version in typst.toml" > "/dev/stderr"; exit 1 } }
   ' crates/csan-typst/pkg/typst.toml > typst.toml.tmp
   mv typst.toml.tmp crates/csan-typst/pkg/typst.toml
-  # The `@preview/csan:<version>` imports of the Typst package's README
-  # (its Typst Universe page) and example
-  for file in crates/csan-typst/pkg/README.md crates/csan-typst/pkg/examples/example.typ; do
+  for file in "${import_files[@]}"; do
     awk -v ver="$raw_version" -v file="$file" '
       { hits += gsub(/@preview\/csan:[0-9]+\.[0-9]+\.[0-9]+/, "@preview/csan:" ver); print }
       END { if (!hits) { print "Error: no @preview/csan import in " file > "/dev/stderr"; exit 1 } }

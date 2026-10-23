@@ -16,9 +16,31 @@
         "type": "github"
       }
     },
+    "package-check": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1788789986,
+        "narHash": "sha256-/JsXhqwqRyXnZDxZ8qnavns9VO81Ss2tmnl5uAj9A0Q=",
+        "owner": "typst",
+        "repo": "package-check",
+        "rev": "dbdea7189458fd6c3b10291e79d934dfb04726c0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "typst",
+        "ref": "v0.7.0",
+        "repo": "package-check",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "nixpkgs": "nixpkgs",
+        "package-check": "package-check",
         "rust-overlay": "rust-overlay"
       }
     },

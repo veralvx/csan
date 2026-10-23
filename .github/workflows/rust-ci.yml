@@ -8,6 +8,7 @@ on:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
       - "crates/csan-typst/pkg/**"
+      - "crates/csan-typst/justfile"
       - "crates/csan-py/pyproject.toml"
       - "crates/csan-py/python/**"
       - "crates/csan-py/tests/**"
@@ -204,13 +205,21 @@ jobs:
           cp target/wasm32-unknown-unknown/wasm/csan_typst.wasm \
             crates/csan-typst/pkg/csan_typst.wasm
 
+      # the pinned Typst (crates/csan-typst/tools.toml), and typst.toml's
+      # `compiler`, the oldest supported, as typst-<version> (`just typst
+      # floor`)
       - name: Install Typst
         run: |
-          curl -sSfL -o /tmp/typst.tar.xz \
-            https://github.com/typst/typst/releases/download/v0.15.1/typst-x86_64-unknown-linux-musl.tar.xz
-          tar -xf /tmp/typst.tar.xz -C /tmp
-          sudo mv /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst
+          for version in 0.15.1 0.14.2; do
+            curl -sSfL -o "/tmp/typst-$version.tar.xz" \
+              "https://github.com/typst/typst/releases/download/v$version/typst-x86_64-unknown-linux-musl.tar.xz"
+            mkdir "/tmp/typst-$version"
+            tar -xf "/tmp/typst-$version.tar.xz" -C "/tmp/typst-$version"
+            sudo mv "/tmp/typst-$version/typst-x86_64-unknown-linux-musl/typst" "/usr/local/bin/typst-$version"
+          done
+          sudo ln -s /usr/local/bin/typst-0.15.1 /usr/local/bin/typst
           typst --version
+          typst-0.14.2 --version
 
       - name: Install just
         uses: taiki-e/install-action@v2
@@ -221,6 +230,16 @@ jobs:
       # the recipe serves from this checkout
       - name: Run the plugin test documents
         run: just typst-test
+
+      # the package's harness against the plugin just built (the bundle is
+      # the working tree): the README's and the examples' Typst, on the
+      # pinned Typst and on the oldest supported, and the imports' versions.
+      # Its other checks need tools this job lacks: `nix flake check`
+      # (nix.yml) runs them all.
+      - name: Typst package harness
+        # each recipe module-qualified: after the first, a bare name is the
+        # root justfile's
+        run: just typst::versions-check typst::readme-check typst::examples-check typst::floor
 
   python-package:
     name: Python package (wheel build + pytest)

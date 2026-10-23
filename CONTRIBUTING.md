@@ -18,6 +18,10 @@ To build and test locally, you will need the following tools:
   (`rustup target add wasm32-unknown-unknown`), the `typst` CLI (0.14.2+)
   to run the plugin test documents, and `wasm-opt` (binaryen) if you want
   to shrink the packaged artifact.
+- **Optional, for the Typst package's harness** (`just typst ...`): the
+  tools [`crates/csan-typst/tools.toml`](crates/csan-typst/tools.toml)
+  pins, at those versions: typst, tytanic (`tt`), typstyle, tinymist,
+  typst-package-check, just, shellcheck, shfmt and actionlint, plus jq.
 - **Optional, for the bindings:** `maturin` for the Python package
   (`crates/csan-py`) and `wasm-pack` plus Node for the npm package
   (`crates/csan-web`).
@@ -25,9 +29,10 @@ To build and test locally, you will need the following tools:
 With [Nix](https://nixos.org), `nix develop` provides all of the above, at
 the versions `flake.lock` pins: the pinned toolchain (with the wasm target),
 just, dprint, cocogitto, git-cliff, cargo-audit, maturin, wasm-pack, Node,
-binaryen, and Typst. `nix develop .#miri` is a nightly shell for Miri, which
-`just miri` uses on its own inside a Nix shell. `nix flake check` builds
-what CI's `nix.yml` checks, and `nix fmt` formats the Nix files.
+binaryen, and the Typst harness's tools. `nix develop .#miri` is a nightly
+shell for Miri, which `just miri` uses on its own inside a Nix shell. `nix
+flake check` builds what CI's `nix.yml` checks, and `nix fmt` formats the
+Nix files, the Typst code (typstyle) and the Typst harness's justfile.
 
 ## Setup
 
@@ -64,6 +69,41 @@ just wasm        # build + install into crates/csan-typst/pkg
 just wasm-opt    # optional: shrink with binaryen's wasm-opt
 just typst-test  # compile the assert-based plugin test suite
 ```
+
+### The Typst package's harness
+
+[`crates/csan-typst/justfile`](crates/csan-typst/justfile) holds the Typst
+package's own recipes, run from the repository's root as `just typst
+<recipe>` (or as `just <recipe>` in `crates/csan-typst`). They run in
+`crates/csan-typst/pkg`, against the plugin committed there (rebuild it with
+`just wasm` first), and `just typst` lists them:
+
+```sh
+just typst install         # the package into Typst's package path: #import "@local/csan:<version>"
+just typst test            # the tests under pkg/tests/ (tytanic)
+just typst figures         # re-render examples/example.png, which the README shows
+just typst checks          # every check below
+```
+
+The checks: the pinned tools are the ones on PATH (`tools-check`), the
+Typst code's and the justfile's format (`format-check`, typstyle),
+tinymist's lint (`lint`), the justfile's script recipes (`shell-check`,
+shellcheck and shfmt), the tests (`test`), every `@preview/csan` import at
+`typst.toml`'s version (`versions-check`), the README's `typ` blocks and the
+examples compiled against the bundle (`readme-check`, `examples-check`;
+`floor` does both on the oldest supported Typst, as `typst-0.14.2`), the
+README's figure as its example renders (`figures-check`), and
+typst-package-check on the bundle (`package-check`, offline unless `just
+typst::online=true typst package-check`). `just typst bundle` writes the package as
+typst/packages gets it to `pkg/dist/preview/csan/<version>/`: `git
+archive` of `pkg/`, less what `pkg/.gitattributes` export-ignores (the
+tests).
+
+`nix flake check` runs them in the sandbox (`typst-tests`, `typst-package`,
+`typst-shell`), with `typst-pins`, which fails when a `nix flake update`
+moved a tool from its `tools.toml` pin, naming it: update `tools.toml` to
+the version the flake has. Rust CI's Typst job runs `versions-check`,
+`readme-check`, `examples-check` and `floor` against the plugin it builds.
 
 The npm package's build recipes are described in
 [`crates/csan-web/README.md`](crates/csan-web/README.md#building-from-source),
@@ -133,16 +173,17 @@ tag, and skips whatever that release already published.
 The Typst package is published by hand, with a pull request to
 [typst/packages](https://github.com/typst/packages) after the release:
 
-1. Copy `crates/csan-typst/pkg` from the release tag to
-   `packages/preview/csan/<version>/` in a fork of typst/packages, without
-   `tests/` (Typst Universe asks that test files not be submitted).
-   `examples/` stays: the README links `examples/example.typ` and shows
-   `examples/example.png`, and `typst.toml` already excludes it from the
-   downloaded bundle.
-2. `just release` has already set the version in `typst.toml` and in the
-   README's `@preview/csan:<version>` import.
-3. If the example changed, re-render its image first with
-   `just typst-example`.
+1. On the release tag, run `just typst checks`, then copy what `just typst
+   bundle` writes (`crates/csan-typst/pkg/dist/preview/csan/<version>/`)
+   to `packages/preview/csan/<version>/` in a fork of typst/packages. It is
+   `pkg/` without its tests, which Typst Universe asks not to be submitted;
+   `examples/` stays, as the README links `examples/example.typ` and shows
+   `examples/example.png`, and `typst.toml` excludes it from the download.
+2. `just release` has already set the version in `typst.toml` and in every
+   `@preview/csan:<version>` import (`just typst versions-check` holds them
+   together).
+3. If the example changed, re-render its image first with `just typst
+   figures` (`just typst figures-check` fails until then).
 
 ## Creating a Pull Request
 

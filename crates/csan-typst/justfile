@@ -1,0 +1,639 @@
+# The Typst package's harness: its tests, checks, bundle and local install. The package is pkg/
+# (typst.toml, lib.typ, the plugin csan_typst.wasm), so every recipe runs there. From the
+# repository's root, the root justfile's `mod typst` runs these as `just typst <recipe>`.
+#
+# What a recipe needs to know about the package it reads at run time from typst.toml
+# (`just manifest`). The plugin is the committed pkg/csan_typst.wasm: after a change to the Rust,
+# rebuild it from the root (`just wasm`) first. Releases are the root's `just release`, which
+# versions the package with the crates and moves every @preview/csan import.
+#
+# Formatted with `just --fmt --unstable`. tools.toml pins the tools, which flake.nix provides.
+
+set working-directory := "pkg"
+
+# The Typst that compiles the README's examples and the examples, as `just typst=<command> ...`
+# sets it here (`just typst::typst=<command> typst ...` from the root): `just floor` gives the
+# oldest. The README's figures are always the pinned `typst`'s.
+#
+# From the root, name each recipe after the first with its module: `just typst::test
+# typst::lint` (a bare second name is the root justfile's).
+export typst := "typst"
+
+# `just online=true package-check` checks the URLs too (`just typst::online=true typst
+# package-check` from the root).
+export online := "false"
+
+[doc("List the recipes")]
+default:
+    @just --list --unsorted
+
+# Typst's own TOML reader (`typst eval`, Typst 0.15): no other parser needed. A missing key prints
+# nothing; an unreadable typst.toml fails.
+[doc("A typst.toml value: just manifest package.version")]
+[positional-arguments]
+manifest key:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    typst eval --root . --input "key=$1" \
+        'sys.inputs.key.split(".").fold(toml("/typst.toml"), (value, key) => if type(value) == dictionary { value.at(key, default: none) })' \
+        | jq -r '. // empty'
+
+# The Nix (flake.nix's formatter) and the rest of the repository are the root's: `nix fmt`
+# formats this justfile and the Typst code too.
+[doc("Format the Typst code, this justfile and its script recipes (modifies files)")]
+format:
+    just typstyle --inplace
+    just shfmt --write
+    just shfmt-recipes
+    just --fmt --unstable
+
+[doc("The Typst code's and this justfile's format, checked (typstyle, just --fmt)")]
+format-check:
+    just typstyle --check
+    just --fmt --unstable --check
+
+# typstyle over every .typ file of the package git does not ignore -- the untracked ones too, which
+# a commit would add -- that exists: a deletion not yet staged is still git's.
+[positional-arguments]
+[private]
+typstyle mode:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    files=()
+    while IFS= read -r -d '' file; do
+        if [ -f "$file" ]; then files+=("$file"); fi
+    done < <(git ls-files -z --cached --others --exclude-standard '*.typ')
+    # with no file, typstyle would read stdin
+    if [ "${#files[@]}" -gt 0 ]; then
+        typstyle "$1" "${files[@]}"
+    fi
+
+# tinymist's linter over every document the checks compile -- the package's entrypoint, each test,
+# each example, and the README's examples -- each with the files it imports, a package's aside: a
+# `set` that takes no effect, a value dropped, an unknown font. Any diagnostic fails it, a warning
+# too. A test is linted as plain Typst, which knows nothing of tytanic's `catch`: there, that alone
+# is left out.
+[doc("The Typst code linted (tinymist lint): the package, the tests, the examples, the README's examples")]
+lint: bundle
+    #!/usr/bin/env bash
+    set -euo pipefail
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+    failed=0
+    # check LABEL ROOT FILE [tytanic]: tinymist's verdict on FILE, compiled from ROOT
+    unknown=': (error|warning): unknown variable: catch$'
+    check() {
+        local status=0 explained=0 kept
+        tinymist lint --root "$2" --package-path "$PWD/dist" --ignore-system-fonts \
+            --diagnostic-format short "$3" > "$work/out" 2>&1 || status=$?
+        kept="$(cat "$work/out")"
+        if [ "${4:-}" = tytanic ] && grep -q -E "$unknown" "$work/out"; then
+            explained=1
+            # the diagnostic, and the help lines that follow it
+            kept="$(awk -v unknown="$unknown" '$0 ~ unknown { skip = 1; next }
+                skip && /: help: / { next }
+                { skip = 0; print }' "$work/out")"
+        fi
+        if [ -n "$kept" ] || { [ "$status" -ne 0 ] && [ "$explained" -eq 0 ]; }; then
+            if [ -n "$kept" ]; then printf '%s\n' "$kept" >&2; else cat "$work/out" >&2; fi
+            echo "error: $1: tinymist lint failed" >&2
+            failed=1
+        fi
+    }
+    entrypoint="$(just manifest package.entrypoint)"
+    check "$entrypoint" . "$entrypoint"
+    count=1
+    while IFS= read -r -d '' test; do
+        if [ -f "$test" ]; then
+            check "$test" . "$test" tytanic
+            count=$((count + 1))
+        fi
+    done < <(git ls-files -z --cached --others --exclude-standard -- \
+        ':(glob)tests/**/test.typ' ':(glob)tests/**/ref.typ')
+    while IFS= read -r -d '' example; do
+        if [ -f "$example" ]; then
+            check "$example" "$(dirname "$example")" "$example"
+            count=$((count + 1))
+        fi
+    done < <(just examples)
+    mkdir "$work/readme"
+    just readme-blocks "$work/readme"
+    for block in "$work"/readme/line-*.typ; do
+        [ -e "$block" ] || continue
+        line="${block##*/line-}"
+        check "README.md:$((10#${line%.typ}))" "$work/readme" "$block"
+        count=$((count + 1))
+    done
+    if [ "$failed" -eq 0 ]; then echo "tinymist lint: $count documents, no finding"; fi
+    exit "$failed"
+
+# Each test is a directory under tests/ with a test.typ: with no reference, a compile-only test,
+# which passes when it compiles -- every `assert` held. tytanic writes its output under the test
+# (out/, diff/), which git ignores.
+[doc("The tests (tytanic): each under tests/")]
+test:
+    tt run --no-fail-fast --warnings promote
+
+# tytanic rewrites the references of the tests named, or of every failing one: look at what changed
+# (tests/<name>/ref/) before committing it.
+[doc("A visual test's new reference, once the change is intended: just update [test...]")]
+[positional-arguments]
+update *tests:
+    tt update "$@"
+
+[doc("The pinned tools (tools.toml) are the ones on PATH")]
+tools-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    failed=0
+    # name, then the command that prints its version
+    while read -r tool command; do
+        pinned="$(sed -n "s/^$tool = \"\([^\"]*\)\".*/\1/p" ../tools.toml)"
+        if ! command -v "${command%% *}" > /dev/null; then
+            echo "error: ${command%% *} ($tool $pinned) is not on PATH: CONTRIBUTING.md lists the tools, \`nix develop\` has them all" >&2
+            failed=1
+            continue
+        fi
+        found="$($command | { grep -o -E '[0-9]+\.[0-9]+\.[0-9]+' || true; } | head -n 1)"
+        if [ "$found" != "$pinned" ]; then
+            echo "error: $tool is $found, tools.toml pins $pinned" >&2
+            failed=1
+        fi
+    done << 'EOF'
+    typst typst --version
+    tytanic tt --version
+    typstyle typstyle --version
+    typst-package-check typst-package-check version
+    tinymist tinymist -V
+    just just --version
+    shellcheck shellcheck --version
+    shfmt shfmt --version
+    actionlint actionlint --version
+    EOF
+    exit "$failed"
+
+# Universe asks that a release's examples import that release; the root's `just release` moves
+# them all. The whole repository, not only the package: any file that imports it.
+[doc("Every @preview/<name>:<version> import (outside the changelog) names typst.toml's version")]
+versions-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    name="$(just manifest package.name)"
+    version="$(just manifest package.version)"
+    # file:line:import, each import on its own, those of another version kept
+    stale="$(git grep -I -n -o -E "@preview/$name:[0-9]+\.[0-9]+\.[0-9]+" -- ':(top)' ':(top,exclude)CHANGELOG.md' \
+        | grep -v -E ":@preview/$name:${version//./\\.}$" || true)"
+    if [ -n "$stale" ]; then
+        printf '%s\n' "$stale" >&2
+        echo "error: these imports are not typst.toml's version, $version" >&2
+        exit 1
+    fi
+
+# pkg/ less its .gitattributes' export-ignore paths (git archive of the package's tree, as
+# typst/packages holds it at its root), laid out as a package path holds it, so `--package-path
+# dist` imports it as @preview. It is git's files as they stand, uncommitted changes too: a new
+# file once `git add`ed.
+[doc("The package as typst/packages gets it, into pkg/dist/preview/<name>/<version>")]
+bundle:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! git rev-parse --quiet --verify HEAD > /dev/null; then
+        echo "error: no commit yet: the bundle is git's files -- commit first" >&2
+        exit 1
+    fi
+    out="dist/preview/$(just manifest package.name)/$(just manifest package.version)"
+    rm -rf dist
+    mkdir -p "$out"
+    # the work tree as a commit (`git stash create`, which changes nothing), or HEAD when clean;
+    # the index refreshed first: a file touched but unchanged fails `stash create`, silently
+    git update-index -q --refresh
+    tree="$(git -c user.name=bundle -c user.email=bundle@localhost stash create)"
+    # this directory's tree within it, the package's root the bundle's -- archived from the
+    # repository's top, as from here git archive would look for this directory inside it again
+    prefix="$(git rev-parse --show-prefix)"
+    git -C "$(git rev-parse --show-toplevel)" archive --format=tar "${tree:-HEAD}:${prefix%/}" \
+        | tar -x -C "$out"
+    # A published version never changes, so nothing goes unnoticed into one: the bundle holds the
+    # package -- typst.toml, the README, the licences, the changelog, the entrypoint's directory --
+    # and what typst.toml's `exclude` names (documentation the README links). Anything else is a
+    # file new to the package: export-ignore it, or give it a place.
+    source="$(dirname "$(just manifest package.entrypoint)")"
+    excludes="$(just manifest package.exclude | jq -r '.[]?')"
+    unexpected=0
+    while IFS= read -r file; do
+        case "$file" in
+            typst.toml | README.md | CHANGELOG.md | LICENSE | LICENSE-*) continue ;;
+        esac
+        # the code: the entrypoint's directory, or, when that is the package's root (csan's
+        # lib.typ), its Typst files and the plugin (csan_typst.wasm) the entrypoint loads
+        if [ "$source" != . ] && [[ $file == "$source"/* ]]; then continue; fi
+        if [ "$source" = . ] && [[ $file == *.typ || $file == *.wasm ]]; then continue; fi
+        # exclude's globs, approximately as gitignore reads them (a `*` here crosses a `/`)
+        listed=false
+        while IFS= read -r glob; do
+            glob="${glob#./}"
+            glob="${glob#/}"
+            glob="${glob%/}"
+            # shellcheck disable=SC2053 # the glob unquoted: a pattern, not a string
+            if [ -n "$glob" ] && [[ $file == $glob || $file == $glob/* || $file == */$glob ]]; then
+                listed=true
+            fi
+        done <<< "$excludes"
+        if [ "$listed" = false ]; then
+            echo "error: $file would go to typst/packages: export-ignore it in pkg/.gitattributes, or, if the README links it, list it in typst.toml's exclude" >&2
+            unexpected=1
+        fi
+    done < <(cd "$out" && find . -type f | sed 's|^\./||' | sort)
+    if [ "$unexpected" -ne 0 ]; then
+        exit 1
+    fi
+    echo "$out"
+
+# Every example: each Typst file under examples/ that git does not ignore, NUL-separated. The
+# README links them, and typst.toml's `exclude` leaves them out of the download.
+[private]
+examples:
+    @git ls-files -z --cached --others --exclude-standard -- ':(glob)examples/**/*.typ'
+
+# An example compiled against the bundle by the Typst given, into OUTPUT, as a reader who copied it
+# would: from its own directory, importing @preview, with the fonts Typst embeds alone. A warning
+# is a failure. (Typst's stderr also carries a dependency's download progress: only a diagnostic,
+# in the short format, counts.)
+[positional-arguments]
+[private]
+compile-example compiler file output *flags:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    compiler="$1"
+    file="$2"
+    output="$3"
+    shift 3
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+    if ! "$compiler" compile --root "$(dirname "$file")" --package-path "$PWD/dist" \
+        --ignore-system-fonts --diagnostic-format short "$@" "$file" "$output" 2> "$work/stderr" \
+        || grep -q -E ': (warning|error): ' "$work/stderr"; then
+        cat "$work/stderr" >&2
+        echo "error: $file does not compile cleanly with $compiler" >&2
+        exit 1
+    fi
+
+[doc("An example compiled against the bundle: just example examples/<name>.typ <output> [flags]")]
+[positional-arguments]
+example file output *flags: bundle
+    just compile-example "$typst" "$@"
+
+[doc("Every example (examples/) compiled against the bundle")]
+examples-check: bundle
+    #!/usr/bin/env bash
+    set -euo pipefail
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+    count=0
+    while IFS= read -r -d '' example; do
+        if [ -f "$example" ]; then
+            just compile-example "$typst" "$example" "$work/out.pdf"
+            count=$((count + 1))
+        fi
+    done < <(just examples)
+    echo "examples/: $count compiled with $typst"
+
+# The README's figures: each example with a PNG beside it (examples/<name>.png, the image the
+# README shows), its first page rendered against the bundle into DIR/<name>.png. Always by the
+# pinned Typst, with the fonts Typst embeds alone: the figures are committed, and another Typst or
+# font may draw them otherwise.
+[positional-arguments]
+[private]
+render-figures dir:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "$1"
+    count=0
+    while IFS= read -r -d '' example; do
+        png="${example%.typ}.png"
+        if [ -f "$example" ] && [ -f "$png" ]; then
+            just compile-example typst "$example" "$1/$(basename "$png")" --format png --pages 1 --ppi 144
+            count=$((count + 1))
+        fi
+    done < <(just examples)
+    if [ "$count" -eq 0 ]; then
+        echo "error: no example has a figure (examples/<name>.png beside examples/<name>.typ)" >&2
+        exit 1
+    fi
+
+# Rendered aside first: a failure leaves examples/ as it was.
+[doc("The README's figures rendered from their examples (examples/<name>.png; modifies files)")]
+figures: bundle
+    #!/usr/bin/env bash
+    set -euo pipefail
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+    just render-figures "$work/figures"
+    cp "$work"/figures/*.png examples/
+
+[doc("The README's figures (examples/<name>.png) are their examples as rendered")]
+figures-check: bundle
+    #!/usr/bin/env bash
+    set -euo pipefail
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+    just render-figures "$work/figures"
+    failed=0
+    for png in "$work"/figures/*.png; do
+        if ! cmp -s "$png" "examples/$(basename "$png")"; then
+            echo "error: examples/$(basename "$png") is not its example as rendered: run \`just figures\` and commit the result" >&2
+            failed=1
+        fi
+    done
+    if [ "$failed" -eq 0 ]; then echo "examples/: the figures are their examples as rendered"; fi
+    exit "$failed"
+
+# Every typ (or typst) block of README.md into DIR as line-<its first line>.typ, its fence's
+# indentation removed: every fenced block CommonMark's way -- backticks or tildes, three or more,
+# indented in a list too, the block closed by a fence of the same character at least as long. A
+# block with no language fails it: Universe's linter reads one as Typst.
+[positional-arguments]
+[private]
+readme-blocks dir:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    awk -v dir="$1" '
+        function fence(line) {
+            if (!match(line, /^[ \t]*(```+|~~~+)/)) return ""
+            indent = line
+            sub(/[^ \t].*/, "", indent)
+            mark = substr(line, length(indent) + 1, RLENGTH - length(indent))
+            return mark
+        }
+        {
+            f = fence($0)
+            if (!open && f != "") {
+                open = f
+                margin = length(indent)
+                lang = substr($0, RLENGTH + 1)
+                sub(/^[ \t]*/, "", lang)
+                sub(/[ \t{,].*/, "", lang)
+                if (lang == "") {
+                    printf "README.md:%d: a code block with no language, which Universe reads as Typst: name it (typ to compile it, text not to)\n", NR > "/dev/stderr"
+                    bad = 1
+                }
+                # as package-check reads it: case aside
+                lang = tolower(lang)
+                keep = lang == "typ" || lang == "typst"
+                if (keep) file = sprintf("%s/line-%05d.typ", dir, NR + 1)
+                next
+            }
+            if (open && f != "" && substr(f, 1, 1) == substr(open, 1, 1) && length(f) >= length(open) && $0 ~ /^[ \t]*[`~]+[ \t]*$/) {
+                if (keep) close(file)
+                open = ""
+                keep = 0
+                next
+            }
+            if (keep) {
+                line = $0
+                for (i = 0; i < margin && substr(line, 1, 1) ~ /[ \t]/; i++) line = substr(line, 2)
+                print line > file
+            }
+        }
+        END { exit bad }
+    ' README.md
+
+# Universe shows the README and asks that its examples compile; its linter also reads a block with
+# no language as Typst. Each block alone, as a reader would paste it, importing the bundle.
+[doc("Every typ block in README.md compiled against the bundle")]
+readme-check: bundle
+    #!/usr/bin/env bash
+    set -euo pipefail
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+    just readme-blocks "$work"
+    count=0
+    for block in "$work"/line-*.typ; do
+        [ -e "$block" ] || continue
+        count=$((count + 1))
+        line="${block##*/line-}"
+        line="$((10#${line%.typ}))"
+        # only a diagnostic fails it, not a dependency's download progress (see `compile-example`)
+        if ! "$typst" compile --root "$work" --package-path "$PWD/dist" --ignore-system-fonts \
+            --diagnostic-format short "$block" "$work/out.pdf" 2> "$work/stderr" \
+            || grep -q -E ': (warning|error): ' "$work/stderr"; then
+            cat "$work/stderr" >&2
+            echo "README.md:$line: this block does not compile cleanly with $typst" >&2
+            exit 1
+        fi
+    done
+    if [ "$count" -eq 0 ]; then
+        echo "error: README.md has no typ example, which Universe asks for" >&2
+        exit 1
+    fi
+    echo "README.md: $count typ blocks compiled with $typst"
+
+# typst/packages runs the same tool on a submission. Offline unless `online=true` (which also checks
+# the URLs); its warnings fail too.
+[doc("typst-package-check on the bundle, as typst/packages runs it")]
+package-check: bundle
+    #!/usr/bin/env bash
+    set -euo pipefail
+    package="dist/preview/$(just manifest package.name)/$(just manifest package.version)"
+    case "$online" in
+        false) typst-package-check check --offline "$package" ;;
+        true) typst-package-check check "$package" ;;
+        *)
+            echo "error: online is true or false (got '$online')" >&2
+            exit 1
+            ;;
+    esac
+
+# CI installs each version as typst-<version>, which is the name looked for here.
+[doc("The README and the examples on typst.toml's `compiler`, the oldest Typst supported")]
+floor:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    compiler="$(just manifest package.compiler)"
+    if [ -z "$compiler" ]; then
+        echo "error: typst.toml declares no compiler" >&2
+        exit 1
+    fi
+    if ! command -v "typst-$compiler" > /dev/null; then
+        echo "error: typst-$compiler is not on PATH: install Typst $compiler under that name" >&2
+        exit 1
+    fi
+    just typst="typst-$compiler" readme-check examples-check
+
+# The bundle installed as `preview` shadows the published version of the same number, until removed
+# from the package path.
+[doc("The bundle into Typst's package path: just install [namespace], then #import \"@local/<name>:<version>\"")]
+[positional-arguments]
+install namespace="local": bundle
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$1" in
+        *[!a-z0-9-]* | "")
+            echo "error: a namespace is lowercase letters, digits and hyphens (got '$1')" >&2
+            exit 1
+            ;;
+    esac
+    name="$(just manifest package.name)"
+    version="$(just manifest package.version)"
+    # -e: a missing key fails, rather than install under ./null
+    target="$(typst info --format json | jq -er '.packages."package-path"')/$1/$name/$version"
+    rm -rf "$target"
+    mkdir -p "$target"
+    cp -R "dist/preview/$name/$version/." "$target"
+    echo "Installed: #import \"@$1/$name:$version\""
+
+# shellcheck and shfmt over every shell script of the package git does not ignore -- shfmt finds
+# them, by extension or shebang -- and over this justfile's shell script recipes (a sh, bash, dash
+# or ksh shebang), which no file holds: each taken from `just --dump`, the names the justfile
+# exports declared before it for shellcheck (their values are just's expressions, not shell's),
+# formatted in the justfile's own style (4 spaces). A script recipe takes its values as arguments,
+# never as `{{ }}` spliced into its text, and names its shell in a shebang, not a `[script]`
+# attribute (whose body holds none to read): both are refused here.
+[doc("The shell: shellcheck and shfmt over the package's scripts and this justfile's script recipes")]
+shell-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+    failed=0
+    just shfmt --diff || failed=1
+    scripts=()
+    while IFS= read -r file; do
+        scripts+=("$file")
+    done < <(just shfmt --find)
+    if [ "${#scripts[@]}" -gt 0 ]; then
+        shellcheck "${scripts[@]}" || failed=1
+    fi
+    dump="$(just --dump --dump-format json)"
+    while IFS= read -r recipe; do
+        if jq -e --arg recipe "$recipe" '.recipes[$recipe].attributes | any(type == "object" and has("script"))' <<< "$dump" > /dev/null; then
+            echo "error: $recipe: a [script] recipe -- name its shell in a shebang instead" >&2
+            failed=1
+            continue
+        fi
+        # its shebang's program, or the one `env` runs, past env's options (`-S`)
+        read -r -a shebang < <(jq -r --arg recipe "$recipe" '.recipes[$recipe].body[0][0] | ltrimstr("#!")' <<< "$dump")
+        program="${shebang[0]-}"
+        program="${program##*/}"
+        if [ "$program" = env ]; then
+            program=""
+            for word in "${shebang[@]:1}"; do
+                if [[ $word != -* ]]; then
+                    program="$word"
+                    break
+                fi
+            done
+        fi
+        case "$program" in
+            sh | bash | dash | ksh) ;;
+            *) continue ;;
+        esac
+        jq -r --arg recipe "$recipe" '
+            .recipes[$recipe].body
+            | map(map(if type == "string" then . else error("\($recipe): an interpolation in a script recipe: pass the value as an argument") end) | join(""))
+            | join("\n")
+        ' <<< "$dump" > "$work/$recipe" || {
+            failed=1
+            continue
+        }
+        # after the shebang, the variables just exports to it: the `export`ed assignments and
+        # `$`-parameters, or every one under `set export`
+        {
+            head -n 1 "$work/$recipe"
+            jq -r --arg recipe "$recipe" '
+                .settings.export as $all
+                | (.assignments[], .recipes[$recipe].parameters[])
+                | select($all or .export)
+                | "export \(.name)="
+            ' <<< "$dump"
+            tail -n +2 "$work/$recipe"
+        } > "$work/$recipe.with-exports"
+        (cd "$work" && shellcheck --shell="$program" "$recipe.with-exports") || failed=1
+        (cd "$work" && shfmt --diff --indent 4 --case-indent --space-redirects --binary-next-line "$recipe") || failed=1
+    done < <(jq -r '.recipes | to_entries[] | select(.value.shebang) | .key' <<< "$dump")
+    exit "$failed"
+
+# shfmt over every shell script of the package git does not ignore and that exists (shfmt finds
+# them, by extension or shebang): `just shfmt --find` lists them, `--diff` checks, `--write`
+# formats.
+[positional-arguments]
+[private]
+shfmt mode:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # a process substitution's failure goes unseen (set -e): outside a repository, ls-files' would
+    git rev-parse --is-inside-work-tree > /dev/null
+    files=()
+    while IFS= read -r -d '' file; do
+        if [ -f "$file" ]; then files+=("$file"); fi
+    done < <(git ls-files -z --cached --others --exclude-standard)
+    # with no file, shfmt would read stdin; a command substitution, so a failing shfmt stops here
+    found=""
+    if [ "${#files[@]}" -gt 0 ]; then found="$(shfmt --find "${files[@]}")"; fi
+    if [ -z "$found" ]; then exit 0; fi
+    scripts=()
+    while IFS= read -r file; do
+        scripts+=("$file")
+    done <<< "$found"
+    case "$1" in
+        --find) printf '%s\n' "${scripts[@]}" ;;
+        *) shfmt "$1" "${scripts[@]}" ;;
+    esac
+
+# This justfile's own script recipes formatted as `just shell-check` holds them: each sh, bash,
+# dash or ksh recipe taken from `just --dump`, through shfmt in the justfile's style, and put back
+# in its place, 4 spaces in. A `[script]` recipe, or one with a `{{ }}` in it, is shell-check's to
+# refuse, and is left as it is.
+[positional-arguments]
+[private]
+shfmt-recipes justfile=justfile():
+    #!/usr/bin/env bash
+    set -euo pipefail
+    justfile="$1"
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+    dump="$(just --dump --dump-format json)"
+    # the shebang's program, or the one `env` runs, past env's options (`-S`), as shell-check reads it
+    names="$(jq -r '
+        .recipes[]
+        | select(.shebang)
+        | select(.attributes | any(type == "object" and has("script")) | not)
+        | select(all(.body[][]; type == "string"))
+        | select(
+            (.body[0][0] | ltrimstr("#!") | split(" ") | map(select(. != ""))) as $words
+            | ($words[0] | split("/") | last) as $program
+            | if $program == "env" then [$words[1:][] | select(startswith("-") | not)][0] else $program end
+            | IN("sh", "bash", "dash", "ksh")
+        )
+        | .name
+    ' <<< "$dump")"
+    if [ -z "$names" ]; then exit 0; fi
+    while IFS= read -r recipe; do
+        jq -r --arg recipe "$recipe" '.recipes[$recipe].body | map(join("")) | join("\n")' <<< "$dump" > "$work/body"
+        shfmt --indent 4 --case-indent --space-redirects --binary-next-line "$work/body" > "$work/formatted"
+        if cmp -s "$work/body" "$work/formatted"; then continue; fi
+        # the recipe's line, then its body in place of the old: every line to the next at the
+        # margin, less the blank lines before that one
+        awk -v recipe="$recipe" -v formatted="$work/formatted" '
+            function body(line) {
+                while ((getline line < formatted) > 0) print (line == "" ? "" : "    " line)
+                close(formatted)
+            }
+            state == 1 && $0 == "" { blanks++; next }
+            state == 1 && /^[ \t]/ { blanks = 0; next }
+            state == 1 {
+                body()
+                for (; blanks > 0; blanks--) print ""
+                state = 2
+            }
+            state == 0 && $0 ~ ("^@?" recipe "([ \t][^:]*)?:") && $0 !~ ("^" recipe "[ \t]*:=") { state = 1 }
+            { print }
+            END { if (state == 1) body() }
+        ' "$justfile" > "$work/justfile"
+        cat "$work/justfile" > "$justfile"
+    done <<< "$names"
+
+# The workflows are the repository's: `nix flake check` lints them (actionlint), and the root's
+# CI runs these. tytanic and the figures need no network; package-check runs offline.
+[doc("Every check of the package")]
+checks: tools-check format-check lint shell-check test versions-check readme-check examples-check figures-check package-check
