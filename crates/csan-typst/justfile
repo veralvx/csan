@@ -12,10 +12,15 @@
 set working-directory := "pkg"
 
 # The Typst that compiles the README's examples and the examples, as `just typst=<command> ...`
-# sets it: `just floor` gives the oldest. The README's figures are always the pinned `typst`'s.
+# sets it here (`just typst::typst=<command> typst ...` from the root): `just floor` gives the
+# oldest. The README's figures are always the pinned `typst`'s.
+#
+# From the root, name each recipe after the first with its module: `just typst::test
+# typst::lint` (a bare second name is the root justfile's).
 export typst := "typst"
 
-# `just online=true package-check` checks the URLs too.
+# `just online=true package-check` checks the URLs too (`just typst::online=true typst
+# package-check` from the root).
 export online := "false"
 
 [doc("List the recipes")]
@@ -168,7 +173,7 @@ tools-check:
     exit "$failed"
 
 # Universe asks that a release's examples import that release; the root's `just release` moves
-# them all. The whole repository, not only the package: the root README imports it too.
+# them all. The whole repository, not only the package: any file that imports it.
 [doc("Every @preview/<name>:<version> import (outside the changelog) names typst.toml's version")]
 versions-check:
     #!/usr/bin/env bash
@@ -176,7 +181,7 @@ versions-check:
     name="$(just manifest package.name)"
     version="$(just manifest package.version)"
     # file:line:import, each import on its own, those of another version kept
-    stale="$(git grep -n -o -E "@preview/$name:[0-9]+\.[0-9]+\.[0-9]+" -- ':(top)' ':(top,exclude)CHANGELOG.md' \
+    stale="$(git grep -I -n -o -E "@preview/$name:[0-9]+\.[0-9]+\.[0-9]+" -- ':(top)' ':(top,exclude)CHANGELOG.md' \
         | grep -v -E ":@preview/$name:${version//./\\.}$" || true)"
     if [ -n "$stale" ]; then
         printf '%s\n' "$stale" >&2

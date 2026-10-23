@@ -94,7 +94,7 @@ examples compiled against the bundle (`readme-check`, `examples-check`;
 `floor` does both on the oldest supported Typst, as `typst-0.14.2`), the
 README's figure as its example renders (`figures-check`), and
 typst-package-check on the bundle (`package-check`, offline unless `just
-typst online=true package-check`). `just typst bundle` writes the package as
+typst::online=true typst package-check`). `just typst bundle` writes the package as
 typst/packages gets it to `pkg/dist/preview/csan/<version>/`: `git
 archive` of `pkg/`, less what `pkg/.gitattributes` export-ignores (the
 tests).

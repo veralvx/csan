@@ -165,7 +165,9 @@
           );
           unknownPins = lib.subtractLists (lib.attrNames typstTools) (lib.attrNames typstPins);
           # what the harness reads: its justfile, its pins and the package,
-          # so an edit elsewhere reruns none of its checks
+          # so an edit elsewhere reruns none of its checks (its
+          # `versions-check` sees the package's imports alone here; Rust
+          # CI's Typst job checks the whole repository's)
           typstSource = lib.fileset.toSource {
             root = ./.;
             fileset = lib.fileset.unions [

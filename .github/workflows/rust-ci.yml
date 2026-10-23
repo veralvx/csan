@@ -237,7 +237,9 @@ jobs:
       # Its other checks need tools this job lacks: `nix flake check`
       # (nix.yml) runs them all.
       - name: Typst package harness
-        run: just typst versions-check readme-check examples-check floor
+        # each recipe module-qualified: after the first, a bare name is the
+        # root justfile's
+        run: just typst::versions-check typst::readme-check typst::examples-check typst::floor
 
   python-package:
     name: Python package (wheel build + pytest)

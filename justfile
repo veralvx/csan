@@ -301,7 +301,7 @@ release semver:
   import_files=()
   while IFS= read -r file; do
     import_files+=("$file")
-  done < <(git grep -l -E '@preview/csan:[0-9]+\.[0-9]+\.[0-9]+' -- ':!CHANGELOG.md')
+  done < <(git grep -I -l -E '@preview/csan:[0-9]+\.[0-9]+\.[0-9]+' -- ':!CHANGELOG.md')
   if [ "${#import_files[@]}" -eq 0 ]; then
     echo "Error: no @preview/csan import found (the Typst package's README has one)" >&2
     exit 1
