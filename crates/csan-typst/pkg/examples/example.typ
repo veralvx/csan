@@ -1,9 +1,9 @@
 // Example document for the csan Typst package.
-// Compile with: typst compile --root .. examples/example.typ (from pkg/)
+// Compile with: typst compile --root . examples/example.typ (from pkg/)
 
-#import "../lib.typ": cutter-sanborn, cutter-loc
+#import "../lib.typ": cutter-loc, cutter-sanborn
 
-#set page(width: auto, height: auto, margin: 1cm)
+#set page(width: auto, height: auto, margin: 1cm, fill: white)
 
 = Cutter call numbers with csan
 
@@ -27,5 +27,9 @@
   [#cutter-loc(title: "100 best hamburger recipes")],
 )
 
-The full call number for a work shelved under QA76.73:
-`QA76.73 .#cutter-sanborn(forename: "Graydon", surname: "Hoare")`
+A spine label for _Oliver Twist_, classed at Dewey 823.8:
+
+#box(stroke: 0.5pt, inset: 8pt, align(center, text(font: "DejaVu Sans Mono")[
+  823.8 \
+  #cutter-sanborn(forename: "Charles", surname: "Dickens", title: "Oliver Twist")
+]))

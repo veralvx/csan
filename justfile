@@ -281,12 +281,13 @@ release semver:
 
   # If anything below fails before the commit, restore the modified files.
   # Uses HEAD (not index) so cleanup works even after git-add.
-  release_files=(Cargo.toml Cargo.lock CHANGELOG.md crates/csan-typst/pkg/typst.toml)
-  trap 'echo "Release aborted — restoring modified files." >&2; rm -f Cargo.toml.tmp typst.toml.tmp; git checkout HEAD -- "${release_files[@]}" 2>/dev/null' ERR
+  release_files=(Cargo.toml Cargo.lock CHANGELOG.md crates/csan-typst/pkg/typst.toml crates/csan-typst/pkg/README.md)
+  trap 'echo "Release aborted — restoring modified files." >&2; rm -f Cargo.toml.tmp typst.toml.tmp README.md.tmp; git checkout HEAD -- "${release_files[@]}" 2>/dev/null' ERR
 
   # 5. Bump the version. Every crate inherits `[workspace.package] version`;
   #    the `csan-core` workspace dependency pins the same version (needed to
-  #    publish `csan` against it), and the Typst package manifest follows.
+  #    publish `csan` against it), and the Typst package manifest and its
+  #    README's import follow.
   #    Each edit must hit exactly the expected lines, or the release stops
   #    (awk and mv are separate statements so that `set -e` and the ERR
   #    trap see a failing awk; on the left of `&&` it would be ignored).
@@ -311,6 +312,13 @@ release semver:
     END { if (hits != 1) { print "Error: no [package] version in typst.toml" > "/dev/stderr"; exit 1 } }
   ' crates/csan-typst/pkg/typst.toml > typst.toml.tmp
   mv typst.toml.tmp crates/csan-typst/pkg/typst.toml
+  # The Typst package README's `@preview/csan:<version>` imports (Typst
+  # Universe shows it as the package page)
+  awk -v ver="$raw_version" '
+    { hits += gsub(/@preview\/csan:[0-9]+\.[0-9]+\.[0-9]+/, "@preview/csan:" ver); print }
+    END { if (!hits) { print "Error: no @preview/csan import in the Typst README" > "/dev/stderr"; exit 1 } }
+  ' crates/csan-typst/pkg/README.md > README.md.tmp
+  mv README.md.tmp crates/csan-typst/pkg/README.md
 
   # 6. Refresh the workspace members' versions in Cargo.lock
   cargo update --workspace
