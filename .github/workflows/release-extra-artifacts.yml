@@ -1,5 +1,6 @@
 # Extra release artifacts, built alongside dist's own: the Typst plugin and
-# package, the Python wheels and sdist, and the Node npm package.
+# package, the Python wheels and sdist, the Ruby gems (platform gems and the
+# source gem), and the Node npm package.
 #
 # Called by release.yml through dist's `global-artifacts-jobs`
 # (dist-workspace.toml) for a release tag. Everything it uploads under an
@@ -31,6 +32,12 @@ on:
       - "crates/csan-web/Cargo.toml"
       - "crates/csan-web/bin/**"
       - "crates/csan-typst/pkg/typst.toml"
+      - "crates/csan-rb/csan.gemspec"
+      - "crates/csan-rb/Gemfile"
+      - "crates/csan-rb/Gemfile.lock"
+      - "crates/csan-rb/Rakefile"
+      - "crates/csan-rb/ext/csan/Cargo.toml"
+      - "crates/csan-rb/ext/csan/extconf.rb"
   pull_request:
     paths:
       - ".github/workflows/release-extra-artifacts.yml"
@@ -41,6 +48,12 @@ on:
       - "crates/csan-web/Cargo.toml"
       - "crates/csan-web/bin/**"
       - "crates/csan-typst/pkg/typst.toml"
+      - "crates/csan-rb/csan.gemspec"
+      - "crates/csan-rb/Gemfile"
+      - "crates/csan-rb/Gemfile.lock"
+      - "crates/csan-rb/Rakefile"
+      - "crates/csan-rb/ext/csan/Cargo.toml"
+      - "crates/csan-rb/ext/csan/extconf.rb"
 
 permissions:
   contents: read
@@ -50,8 +63,9 @@ env:
 
 jobs:
   # The release tag must match every manifest that carries the version;
-  # dist checks Cargo.toml, this checks the Typst package too. Without a
-  # plan (a standalone run) the Cargo and Typst versions must still agree.
+  # dist checks Cargo.toml, this checks the Typst package and the Ruby gem
+  # (its version, and its crate's pin on csan) too. Without a plan (a
+  # standalone run) they must still agree with Cargo.toml.
   versions:
     name: Check release versions
     runs-on: ubuntu-latest
@@ -68,17 +82,21 @@ jobs:
             | jq -r '.packages[] | select(.name == "csan") | .version')"
           typst_version="$(awk -F'"' '/^version[[:space:]]*=/ { print $2; exit }' \
             crates/csan-typst/pkg/typst.toml)"
+          gem_version="$(sed -n 's/^  VERSION = "\(.*\)"$/\1/p' crates/csan-rb/lib/csan/version.rb)"
+          gem_pin="$(sed -n 's/^csan = .*version = "=\([^"]*\)".*/\1/p' crates/csan-rb/ext/csan/Cargo.toml)"
           if [ -n "$PLAN" ]; then
             tag="$(jq -r '.announcement_tag' <<<"$PLAN")"
           else
             tag="v$cargo_version"
           fi
           version="${tag#v}"
-          echo "tag=$tag cargo=$cargo_version typst=$typst_version"
-          if [ "$cargo_version" != "$version" ] || [ "$typst_version" != "$version" ]; then
-            echo "::error::release tag $tag does not match the manifests (Cargo.toml $cargo_version, typst.toml $typst_version)"
-            exit 1
-          fi
+          echo "tag=$tag cargo=$cargo_version typst=$typst_version gem=$gem_version gem-pin=$gem_pin"
+          for manifest in "$cargo_version" "$typst_version" "$gem_version" "$gem_pin"; do
+            if [ "$manifest" != "$version" ]; then
+              echo "::error::release tag $tag does not match the manifests (Cargo.toml $cargo_version, typst.toml $typst_version, version.rb $gem_version, the gem crate's csan pin $gem_pin)"
+              exit 1
+            fi
+          done
 
   typst:
     name: Typst plugin and package
@@ -248,4 +266,130 @@ jobs:
         with:
           name: artifacts-extra-sdist
           path: dist/*.tar.gz*
+          if-no-files-found: error
+
+  # The Ruby platform gems: one per platform, each carrying the extension
+  # for Ruby 3.3, 3.4, and 4.0 (lib/csan/<major.minor>/; aarch64-mingw-ucrt,
+  # which Ruby supports from 3.4, skips 3.3), cross-compiled by rb-sys-dock
+  # (`rake native:<platform> gem`) in its rake-compiler-dock images.
+  gems:
+    name: Ruby gem (${{ matrix.platform }})
+    needs: versions
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - x86_64-linux
+          - aarch64-linux
+          - x86_64-linux-musl
+          - aarch64-linux-musl
+          - x86_64-darwin
+          - arm64-darwin
+          - x64-mingw-ucrt
+          - aarch64-mingw-ucrt
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # rb-sys-dock, which the action installs, runs on the host Ruby
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - name: Read the pinned toolchain
+        id: toolchain
+        run: echo "channel=$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      # The action installs the rb_sys (rb-sys-dock, and its image) of the
+      # Gemfile.lock it finds at the repository's root, or else the newest:
+      # it gets the gem's, whose rb_sys the build in the image uses.
+      - name: Point the action at the gem's Gemfile.lock
+        run: ln -s crates/csan-rb/Gemfile.lock Gemfile.lock
+
+      # The images ship rustup with their own default toolchain; the build,
+      # in the checkout (mounted as is), uses the one rust-toolchain.toml
+      # pins, which needs this platform's target. (rb-sys-dock runs the
+      # pre-script inside single quotes: none in it.)
+      - name: Build the gem
+        id: cross-gem
+        uses: oxidize-rb/actions/cross-gem@v1
+        with:
+          platform: ${{ matrix.platform }}
+          ruby-versions: "3.3,3.4,4.0"
+          working-directory: crates/csan-rb
+          pre-script: rustup toolchain install ${{ steps.toolchain.outputs.channel }} --profile minimal --target $RUST_TARGET
+
+      - name: Smoke-test the gem
+        if: matrix.platform == 'x86_64-linux'
+        env:
+          GEM_FILE: ${{ steps.cross-gem.outputs.gem-path }}
+        run: |
+          gem install --local --no-document "$GEM_FILE"
+          test "$(csan --surname Dickens --title "Oliver Twist")" = "D548o"
+          test "$(csan --method cutter-loc --surname Carter)" = "C378"
+          ruby -e 'require "csan"; abort unless Csan.cutter_loc(surname: "Carter") == "C378"'
+
+      - name: Checksums
+        working-directory: crates/csan-rb/pkg
+        run: for f in *.gem; do sha256sum "$f" > "$f.sha256"; done
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: artifacts-extra-gem-${{ matrix.platform }}
+          path: crates/csan-rb/pkg/*.gem*
+          if-no-files-found: error
+
+  # The Ruby source gem, for every other platform: it builds the extension
+  # on install, from `cargo package`'s crate, against csan on crates.io.
+  gem-source:
+    name: Ruby source gem
+    needs: versions
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/csan-rb
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+          working-directory: crates/csan-rb
+
+      # rust-toolchain.toml's, for `cargo package` (the smoke test's build,
+      # outside the checkout, uses the runner's stable)
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+
+      - name: Build the source gem
+        run: bundle exec rake source_gem
+
+      # Installed as a user would, outside the workspace. A release's csan
+      # crates reach crates.io only after this workflow, so Cargo takes them
+      # from this checkout ([patch] in a Cargo home of its own): the same
+      # code, at the same version the gem's crate pins.
+      - name: Smoke-test the source gem
+        run: |
+          gem="pkg/csan-$(ruby -r ./lib/csan/version -e 'print Csan::VERSION').gem"
+          export CARGO_HOME="$RUNNER_TEMP/cargo-home"
+          mkdir -p "$CARGO_HOME"
+          printf '[patch.crates-io]\ncsan = { path = "%s" }\ncsan-core = { path = "%s" }\n' \
+            "$GITHUB_WORKSPACE/crates/csan" "$GITHUB_WORKSPACE/crates/csan-core" > "$CARGO_HOME/config.toml"
+          export GEM_HOME="$RUNNER_TEMP/gems"
+          (cd "$RUNNER_TEMP" && gem install --no-document "$GITHUB_WORKSPACE/crates/csan-rb/$gem")
+          test "$("$GEM_HOME/bin/csan" --surname Dickens --title "Oliver Twist")" = "D548o"
+
+      - name: Checksums
+        working-directory: crates/csan-rb/pkg
+        run: for f in *.gem; do sha256sum "$f" > "$f.sha256"; done
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: artifacts-extra-gem-source
+          path: crates/csan-rb/pkg/*.gem*
           if-no-files-found: error

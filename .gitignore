@@ -21,3 +21,10 @@ crates/csan-web/pkg-web/
 # Python bytecode (pytest runs)
 __pycache__/
 *.py[cod]
+# The Ruby gem's build outputs (rake compile, rake native gem, rake source_gem)
+crates/csan-rb/tmp/
+crates/csan-rb/pkg/
+crates/csan-rb/lib/csan/*.so
+crates/csan-rb/lib/csan/*.bundle
+crates/csan-rb/lib/csan/*.dll
+crates/csan-rb/lib/csan/[0-9]*/

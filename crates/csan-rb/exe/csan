@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# The csan command line: the standalone binary's interface (`csan --help`).
+require "csan"
+
+exit Csan.run_cli(ARGV)

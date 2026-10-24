@@ -27,6 +27,33 @@ updates:
     cooldown:
       default-days: 3
 
+  # ─── Ruby (the gem's development tools, crates/csan-rb) ───────────
+  # The gem's runtime dependency (rb_sys) is a gemspec range; Bundler's lock
+  # pins the tools around it (rake, rake-compiler, minitest, standard).
+  - package-ecosystem: "bundler"
+    directory: "/crates/csan-rb"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "06:30"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "ruby"
+    groups:
+      ruby-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+
   # ─── GitHub Actions ─────────────────────────────────────────────
   - package-ecosystem: "github-actions"
     directory: "/"

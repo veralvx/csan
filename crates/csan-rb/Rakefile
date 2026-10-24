@@ -1,0 +1,70 @@
+# frozen_string_literal: true
+
+require "fileutils"
+require "rake/testtask"
+require "rb_sys/extensiontask"
+require "standard/rake"
+
+GEMSPEC = Gem::Specification.load(File.expand_path("csan.gemspec", __dir__))
+
+# Unwinding, so that magnus turns a Rust panic into a Ruby exception: the
+# workspace's release profile aborts, which would take the interpreter down.
+# Whatever profile rb-sys picks (it forces `release` when SOURCE_DATE_EPOCH
+# is set, as in rb-sys-dock's builds), Cargo reads this override for
+# `release`; the other profiles unwind already. A source gem's install
+# builds outside the workspace, with Cargo's own release profile, which
+# unwinds.
+ENV["CARGO_PROFILE_RELEASE_PANIC"] ||= "unwind"
+
+# `rake compile`: the extension, from the crate in ext/csan (the Cargo
+# package csan-rb), into lib/csan/. `rake native:<platform> gem` is a
+# platform gem, as rb-sys-dock builds them (the Release workflow).
+RbSys::ExtensionTask.new("csan-rb", GEMSPEC) do |ext|
+  ext.lib_dir = "lib/csan"
+end
+
+Rake::TestTask.new(:test) do |t|
+  t.libs << "lib"
+  t.test_files = FileList["test/**/test_*.rb"]
+end
+
+# The source gem, which builds its extension on install, outside this
+# workspace: its crate is `cargo package`'s (the workspace's fields filled
+# in, the path dependencies dropped for their crates.io versions, the
+# Cargo.lock included), not ext/csan/Cargo.toml. Into pkg/.
+#
+# csan and csan-core are packaged with it: a release's versions reach
+# crates.io only after the release is built, so Cargo resolves them from
+# these packages instead. They are the crates publish-crates.yml publishes
+# (Cargo packages reproducibly), so the lock's checksums match crates.io's;
+# publish-rubygems.yml checks that before pushing the gem.
+desc "Build the source gem (pkg/csan-#{GEMSPEC.version}.gem)"
+task :source_gem do
+  stage = File.expand_path("tmp/source-gem", __dir__)
+  FileUtils.rm_rf(stage)
+  FileUtils.mkdir_p(stage)
+  sh "cargo", "package", "--package", "csan-core", "--package", "csan", "--package", "csan-rb",
+    "--no-verify", "--allow-dirty", "--locked", "--target-dir", File.join(stage, "target")
+  crate = File.join(stage, "target/package/csan-rb-#{GEMSPEC.version}.crate")
+
+  gem_dir = File.join(stage, "gem")
+  files = GEMSPEC.files.reject { |file| file.start_with?("ext/csan/") && !file.end_with?(".rb") }
+  (files + ["csan.gemspec"]).each do |file|
+    FileUtils.mkdir_p(File.join(gem_dir, File.dirname(file)))
+    FileUtils.cp(file, File.join(gem_dir, file), preserve: true)
+  end
+  sh "tar", "-xzf", crate, "-C", File.join(gem_dir, "ext/csan"), "--strip-components=1"
+  # A workspace of its own: installed under a directory holding a Cargo
+  # workspace (a Bundler path in a Rust project), Cargo would otherwise
+  # take the crate for an unlisted member of it and stop.
+  File.open(File.join(gem_dir, "ext/csan/Cargo.toml"), "a") { |f| f.puts "", "[workspace]" }
+
+  # In a process of its own, outside Bundler (which loads this directory's
+  # gemspec): the stage's gemspec would redefine Csan::VERSION.
+  built = File.expand_path("pkg/csan-#{GEMSPEC.version}.gem", __dir__)
+  FileUtils.mkdir_p(File.dirname(built))
+  build = -> { Dir.chdir(gem_dir) { sh "gem", "build", "csan.gemspec", "--output", built } }
+  defined?(Bundler) ? Bundler.with_unbundled_env(&build) : build.call
+end
+
+task default: %i[compile test standard]
