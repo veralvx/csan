@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Update README
 - Rewrite the package README for Typst Universe
-- Import the package by its @preview spec in the example
+- Import the package by its `@preview` spec in the example
 - Align the README's table as dprint formats it
 - Merge pull request #20 from veralvx/claude/youthful-brahmagupta-6rcrfr
 - Merge pull request #21 from veralvx/claude/youthful-brahmagupta-6rcrfr
