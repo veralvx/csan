@@ -1,6 +1,15 @@
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+# Listed, not globbed: the Ruby gem's crate sits in its gem's `ext/csan`
+# (the layout rb-sys builds), and crates/csan-rb itself has no manifest.
+members = [
+  "crates/csan",
+  "crates/csan-core",
+  "crates/csan-py",
+  "crates/csan-rb/ext/csan",
+  "crates/csan-typst",
+  "crates/csan-web",
+]
 
 [workspace.package]
 version = "0.7.1"
@@ -24,6 +33,7 @@ clap = { version = "4.5", features = ["derive"] }
 csan-core = { path = "crates/csan-core", version = "0.7.1" }
 derive_more = { version = "2.1", features = ["display", "error"] }
 js-sys = "0.3"
+magnus = "0.9.3"
 pyo3 = { version = "0.30.1", features = ["extension-module", "abi3-py39"] }
 serde = { version = "1.0", features = ["derive"] }
 serde-wasm-bindgen = "0.6.5"
@@ -66,10 +76,10 @@ unused_macro_rules = "warn"
 unused_qualifications = "warn"
 variant_size_differences = "warn"
 # unsafe_code is guarded per crate rather than here: the four pure-Rust
-# crates use `#![forbid(unsafe_code)]`, and the two FFI binding crates
-# (csan-py, csan-web) use `#![deny(unsafe_code)]` because pyo3 and
-# wasm-bindgen macro expansions contain unsafe that `forbid` (which cannot
-# be overridden) would reject.
+# crates use `#![forbid(unsafe_code)]`, and the three FFI binding crates
+# (csan-py, csan-rb, csan-web) use `#![deny(unsafe_code)]` because pyo3,
+# magnus and wasm-bindgen macro expansions contain unsafe that `forbid`
+# (which cannot be overridden) would reject.
 
 # must_not_suspend = "warn" # nightly
 # lossy_provenance_casts = "warn" # nightly

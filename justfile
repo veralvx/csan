@@ -156,6 +156,25 @@ py-test:
   maturin develop -m crates/csan-py/Cargo.toml
   pytest crates/csan-py/tests
 
+[doc("Compile the Ruby gem's extension and run its test suite (requires Ruby with bundler, and libclang)")]
+[group("Bindings")]
+[working-directory("crates/csan-rb")]
+rb-test:
+  bundle install
+  bundle exec rake compile test
+
+[doc("Lint the Ruby gem's Ruby code (standardrb)")]
+[group("Bindings")]
+[working-directory("crates/csan-rb")]
+rb-lint:
+  bundle exec rake standard
+
+[doc("Build the Ruby gem for this platform, and the source gem, into crates/csan-rb/pkg")]
+[group("Bindings")]
+[working-directory("crates/csan-rb")]
+rb-build:
+  bundle exec rake native gem source_gem
+
 # ----------------------------------------------------------------- Checks
 
 cargo-check:
@@ -309,13 +328,14 @@ release semver:
 
   # If anything below fails before the commit, restore the modified files.
   # Uses HEAD (not index) so cleanup works even after git-add.
-  release_files=(Cargo.toml Cargo.lock CHANGELOG.md crates/csan-typst/pkg/typst.toml "${import_files[@]}")
-  trap 'echo "Release aborted — restoring modified files." >&2; rm -f Cargo.toml.tmp typst.toml.tmp import.tmp; git checkout HEAD -- "${release_files[@]}" 2>/dev/null' ERR
+  gem_files=(crates/csan-rb/ext/csan/Cargo.toml crates/csan-rb/lib/csan/version.rb crates/csan-rb/Gemfile.lock)
+  release_files=(Cargo.toml Cargo.lock CHANGELOG.md crates/csan-typst/pkg/typst.toml "${gem_files[@]}" "${import_files[@]}")
+  trap 'echo "Release aborted — restoring modified files." >&2; rm -f Cargo.toml.tmp typst.toml.tmp import.tmp gem.tmp; git checkout HEAD -- "${release_files[@]}" 2>/dev/null' ERR
 
   # 5. Bump the version. Every crate inherits `[workspace.package] version`;
   #    the `csan-core` workspace dependency pins the same version (needed to
   #    publish `csan` against it), and the Typst package manifest and its
-  #    imports follow.
+  #    imports, and the Ruby gem, follow.
   #    Each edit must hit exactly the expected lines, or the release stops
   #    (awk and mv are separate statements so that `set -e` and the ERR
   #    trap see a failing awk; on the left of `&&` it would be ignored).
@@ -347,6 +367,27 @@ release semver:
     ' "$file" > import.tmp
     mv import.tmp "$file"
   done
+  # The Ruby gem: its crate's pin on csan (its source gem builds against
+  # that release on crates.io), its version, and Bundler's lock of it
+  awk -v ver="$raw_version" '
+    /^csan = / { hits += sub(/version = "=[^"]*"/, "version = \"=" ver "\"") }
+    { print }
+    END { if (hits != 1) { print "Error: no csan version pin in the gem crate's Cargo.toml" > "/dev/stderr"; exit 1 } }
+  ' crates/csan-rb/ext/csan/Cargo.toml > gem.tmp
+  mv gem.tmp crates/csan-rb/ext/csan/Cargo.toml
+  awk -v ver="$raw_version" '
+    /^  VERSION = "/ { $0 = "  VERSION = \"" ver "\""; hits++ }
+    { print }
+    END { if (hits != 1) { print "Error: no VERSION in the gem's version.rb" > "/dev/stderr"; exit 1 } }
+  ' crates/csan-rb/lib/csan/version.rb > gem.tmp
+  mv gem.tmp crates/csan-rb/lib/csan/version.rb
+  # (its specs entry, and its CHECKSUMS entry, which has no checksum: a path gem)
+  awk -v ver="$raw_version" '
+    /^ +csan \([^)]*\)$/ { hits += sub(/\([^)]*\)/, "(" ver ")") }
+    { print }
+    END { if (hits != 2) { print "Error: expected 2 csan entries in the gem's Gemfile.lock, found " hits+0 > "/dev/stderr"; exit 1 } }
+  ' crates/csan-rb/Gemfile.lock > gem.tmp
+  mv gem.tmp crates/csan-rb/Gemfile.lock
 
   # 6. Refresh the workspace members' versions in Cargo.lock
   cargo update --workspace
@@ -367,7 +408,7 @@ release semver:
 
   # 10. Push branch and tag atomically (both or neither). The tag push
   #     triggers the Release workflow, and a successful release triggers
-  #     the PyPI, npm, and crates.io publishes.
+  #     the PyPI, RubyGems, npm, and crates.io publishes.
   if ! git push --atomic origin main "$tag"; then
     echo "Error: push failed; the release commit and tag $tag exist locally. Retry with: git push --atomic origin main $tag" >&2
     exit 1

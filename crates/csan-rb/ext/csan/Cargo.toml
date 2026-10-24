@@ -1,0 +1,39 @@
+[package]
+name = "csan-rb"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+repository.workspace = true
+rust-version.workspace = true
+description = "Ruby bindings for Cutter call number generation"
+
+[lib]
+# The extension inside the `csan` gem: lib/csan/csan_rb.so, which
+# `require "csan"` loads. Not `csan`, the name of the CLI crate's library.
+name = "csan_rb"
+crate-type = ["cdylib"]
+# The extension resolves Ruby's symbols from the interpreter that loads it,
+# so a Rust test harness for this crate cannot link. The bindings are tested
+# from Ruby instead, against the built extension, in test/test_csan.rb (run
+# in CI's ruby-gem job); the shared logic they delegate to is covered by the
+# csan-core and csan (CLI) unit tests.
+test = false
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+# A version as well as the path: the source gem builds this crate outside
+# the workspace, from `cargo package`'s manifest, which keeps the version
+# and drops the path, so it compiles against the release on crates.io.
+# `just release` moves the pin.
+csan = { path = "../../../csan", version = "=0.7.1" }
+csan-core = { workspace = true }
+magnus = { workspace = true }
+serde_json = { workspace = true }
+
+[package.metadata.dist]
+dist = false

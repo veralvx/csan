@@ -1,0 +1,184 @@
+# Publishes the Ruby gem to RubyGems once a version-bump release succeeds:
+# `just release` pushes the tag, the Release workflow builds every artifact
+# (including the platform gems and the source gem, see
+# release-extra-artifacts.yml) and creates the GitHub Release, and this
+# workflow pushes exactly those gems from it.
+#
+# The source gem builds against csan and csan-core on crates.io
+# (publish-crates.yml), so it is pushed once crates.io has them: every
+# platform gem first.
+#
+# Authentication is RubyGems trusted publishing (OIDC), set up once:
+#   1. rubygems.org → (before the first release) Profile → Trusted
+#      publishers → pending trusted publisher for the gem `csan`; afterwards,
+#      the gem's page → Trusted publishers. GitHub Actions: owner `veralvx`,
+#      repository `csan`, workflow `publish-rubygems.yml`, environment
+#      `rubygems`.
+#   2. GitHub → Settings → Environments → create `rubygems` (optionally with
+#      required reviewers). A deployment branch rule must allow `main`:
+#      workflow_run jobs run on the default branch, not on the tag.
+#
+# To (re)publish a release by hand, run it from the Actions tab with the
+# release tag; gems already on RubyGems are skipped.
+name: Publish to RubyGems
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish (e.g. v1.2.3)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.tag || github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Push to RubyGems
+    # The Release workflow also runs (plan-only) for pull requests; only a
+    # successful tag push from this repository is a release.
+    if: >-
+      github.event_name == 'workflow_dispatch' || (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
+    runs-on: ubuntu-latest
+    environment:
+      name: rubygems
+      url: https://rubygems.org/gems/csan
+    permissions:
+      contents: read # download the release assets
+      id-token: write # RubyGems trusted publishing
+    steps:
+      - name: Resolve the release tag
+        id: release
+        env:
+          # For a tag push, the triggering run's head_branch is the tag name.
+          TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+        run: |
+          # The Release workflow also accepts prerelease tags (vX.Y.Z-rc.1),
+          # whose gem versions differ (X.Y.Z.pre.rc.1); those are not
+          # published here.
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::notice::'$TAG' is not a vX.Y.Z release tag; nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            echo "publish=true"
+            echo "tag=$TAG"
+            echo "version=${TAG#v}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download the gems from the GitHub Release
+        if: steps.release.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir gems \
+            --pattern "csan-$VERSION.gem" --pattern "csan-$VERSION-*.gem"
+          ls -l gems
+          test -f "gems/csan-$VERSION.gem" || { echo "::error::source gem missing from $TAG"; exit 1; }
+          compgen -G "gems/csan-$VERSION-*.gem" > /dev/null || { echo "::error::no platform gems in $TAG"; exit 1; }
+
+      - uses: ruby/setup-ruby@v1
+        if: steps.release.outputs.publish == 'true'
+        with:
+          ruby-version: "3.4"
+
+      # The versions (and platforms) already on RubyGems: a re-run skips
+      # them, as RubyGems refuses a repush.
+      - name: List the published gems
+        if: steps.release.outputs.publish == 'true'
+        run: |
+          status="$(curl -sS --retry 3 -o versions.json -w '%{http_code}' \
+            https://rubygems.org/api/v1/versions/csan.json)"
+          case "$status" in
+            200) jq -r '.[] | "\(.number) \(.platform)"' versions.json > published.txt ;;
+            404) : > published.txt ;; # not on RubyGems yet
+            *) echo "::error::RubyGems' versions API answered $status"; exit 1 ;;
+          esac
+          cat published.txt
+
+      # Its API key lasts 15 minutes: the source gem gets one of its own.
+      - name: Configure the RubyGems credentials
+        if: steps.release.outputs.publish == 'true'
+        uses: rubygems/configure-rubygems-credentials@v2.1.0
+
+      - name: Push the platform gems
+        if: steps.release.outputs.publish == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          for gem in gems/csan-"$VERSION"-*.gem; do
+            platform="${gem##*/csan-"$VERSION"-}"
+            if grep -qxF "$VERSION ${platform%.gem}" published.txt; then
+              echo "::notice::$(basename "$gem") is already on RubyGems; skipping it."
+            else
+              gem push "$gem"
+            fi
+          done
+
+      # The source gem builds against csan and csan-core from crates.io
+      # (publish-crates.yml publishes them in parallel), at the checksums its
+      # Cargo.lock records, which rake source_gem took from the crates it
+      # packaged: wait for both (up to 30 minutes), and check them.
+      - name: Wait for the crates on crates.io
+        id: crates
+        if: steps.release.outputs.publish == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          if grep -qxF "$VERSION ruby" published.txt; then
+            echo "::notice::csan-$VERSION.gem is already on RubyGems; skipping it."
+            echo "push=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          tar -xOf "gems/csan-$VERSION.gem" data.tar.gz | tar -xzO ext/csan/Cargo.lock > Cargo.lock
+          for crate in csan-core csan; do
+            locked="$(awk -v name="$crate" -v ver="$VERSION" '
+              /^\[\[package\]\]/ { n = ""; v = "" }
+              /^name = / { n = $3; gsub(/"/, "", n) }
+              /^version = / { v = $3; gsub(/"/, "", v) }
+              /^checksum = / && n == name && v == ver { c = $3; gsub(/"/, "", c); print c }
+            ' Cargo.lock)"
+            test -n "$locked" || { echo "::error::no $crate $VERSION checksum in the source gem's Cargo.lock"; exit 1; }
+            index="https://index.crates.io/${crate:0:2}/${crate:2:2}/$crate"
+            for attempt in $(seq 1 60); do
+              published="$(curl -sSf --retry 3 "$index" \
+                | jq -r --arg v "$VERSION" 'select(.vers == $v) | .cksum' || true)"
+              [ -n "$published" ] && break
+              echo "$crate $VERSION is not on crates.io yet (attempt $attempt); waiting."
+              sleep 30
+            done
+            if [ -z "$published" ]; then
+              echo "::error::$crate $VERSION never reached crates.io: the source gem, which builds against it, was not pushed. Re-run once publish-crates.yml has published it."
+              exit 1
+            fi
+            if [ "$published" != "$locked" ]; then
+              echo "::error::$crate $VERSION on crates.io ($published) is not the crate the source gem's Cargo.lock records ($locked): the gem would not install, so it was not pushed."
+              exit 1
+            fi
+          done
+          echo "push=true" >> "$GITHUB_OUTPUT"
+
+      - name: Configure the RubyGems credentials again
+        if: steps.crates.outputs.push == 'true'
+        uses: rubygems/configure-rubygems-credentials@v2.1.0
+
+      - name: Push the source gem
+        if: steps.crates.outputs.push == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: gem push "gems/csan-$VERSION.gem"

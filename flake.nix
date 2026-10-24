@@ -7,7 +7,8 @@
 #   nix run . -- --help  the binary, run (`nix run github:veralvx/csan -- ...`)
 #   nix develop          the shell: the toolchain (with the wasm target), just,
 #                        dprint, cog, git-cliff, cargo-audit, and the bindings'
-#                        tools (maturin, wasm-pack, node, typst)
+#                        tools (maturin, ruby with bundler and libclang,
+#                        wasm-pack, node, typst)
 #   nix develop .#miri   nightly with Miri, for `just miri`
 #   nix fmt              nixfmt, through treefmt; `nix fmt -- --ci` formats,
 #                        and fails if that changed a file
@@ -23,7 +24,7 @@
 #                        (.github/workflows/nix.yml)
 #
 # The package is the CLI alone (crates/csan, with crates/csan-core): the
-# Python, npm and Typst bindings are built by their own tools (see the
+# Python, Ruby, npm and Typst bindings are built by their own tools (see the
 # justfile), and released by the Release workflow.
 #
 # flake.lock pins nixpkgs, rust-overlay and typst-package-check: commit it;
@@ -89,6 +90,18 @@
               ./SECURITY.md
               ./cliff.toml
               ./cog.toml
+              # the Ruby gem, less its crate (ext/csan), a workspace member
+              ./crates/csan-rb/Gemfile
+              ./crates/csan-rb/Gemfile.lock
+              ./crates/csan-rb/LICENSE-APACHE
+              ./crates/csan-rb/LICENSE-MIT
+              ./crates/csan-rb/README.md
+              ./crates/csan-rb/Rakefile
+              ./crates/csan-rb/csan.gemspec
+              ./crates/csan-rb/exe
+              ./crates/csan-rb/lib
+              ./crates/csan-rb/sig
+              ./crates/csan-rb/test
               ./crates/csan-typst/justfile
               ./crates/csan-typst/pkg
               ./crates/csan-typst/tools.toml
@@ -210,14 +223,19 @@
           # a check: one cargo command over the whole workspace, offline
           # against the vendored lock, a stamp for output. The Python
           # bindings' build script (pyo3) needs an interpreter to configure
-          # against.
+          # against; the Ruby gem's (rb-sys) a Ruby, and libclang for
+          # bindgen.
           cargoCheck =
             name: command:
             rustPlatform.buildRustPackage (
               common
               // {
                 pname = "${pname}-${name}";
-                nativeBuildInputs = [ pkgs.python3 ];
+                nativeBuildInputs = [
+                  pkgs.python3
+                  pkgs.ruby
+                  rustPlatform.bindgenHook
+                ];
                 buildPhase = ''
                   runHook preBuild
                   ${command}
@@ -272,10 +290,13 @@
                 pkgs.cargo-audit
                 pkgs.cargo-dist
                 pkgs.nixfmt
-                # the bindings: Python (maturin, pytest), npm (wasm-pack,
+                # the bindings: Python (maturin, pytest), Ruby (with bundler;
+                # libclang, through bindgenHook, for rb-sys), npm (wasm-pack,
                 # node, binaryen's wasm-opt)
                 pkgs.maturin
                 (pkgs.python3.withPackages (python: [ python.pytest ]))
+                pkgs.ruby
+                rustPlatform.bindgenHook
                 pkgs.wasm-pack
                 pkgs.binaryen
                 pkgs.nodejs

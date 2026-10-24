@@ -7,6 +7,10 @@ Thank you for considering contributing!
 To build and test locally, you will need the following tools:
 
 - **Rust:** Version 1.97 or later (stable; pinned in `rust-toolchain.toml`).
+- **Ruby and libclang:** Ruby 3.3+ with its headers, and libclang, since
+  the Ruby bindings' crate is a workspace member (rb-sys reads the Ruby
+  installation and generates its bindings with bindgen when it builds);
+  plus Bundler for the gem's own recipes (`just rb-test`, …).
 - **Just:** A command runner for our project automation.
 - **Dprint:** Used for standardizing markdown and JSON formatting.
 - **Cocogitto:** Used to enforce Conventional Commits.
@@ -24,12 +28,14 @@ To build and test locally, you will need the following tools:
   typst-package-check, just, shellcheck, shfmt and actionlint, plus jq.
 - **Optional, for the bindings:** `maturin` for the Python package
   (`crates/csan-py`) and `wasm-pack` plus Node for the npm package
-  (`crates/csan-web`).
+  (`crates/csan-web`). The gem (`crates/csan-rb`) needs only Ruby and
+  Bundler, above; its cross-compiled platform gems are built in CI.
 
 With [Nix](https://nixos.org), `nix develop` provides all of the above, at
 the versions `flake.lock` pins: the pinned toolchain (with the wasm target),
-just, dprint, cocogitto, git-cliff, cargo-audit, maturin, wasm-pack, Node,
-binaryen, and the Typst harness's tools. `nix develop .#miri` is a nightly
+Ruby with Bundler, libclang, just, dprint, cocogitto, git-cliff,
+cargo-audit, maturin, wasm-pack, Node, binaryen, and the Typst harness's
+tools. `nix develop .#miri` is a nightly
 shell for Miri, which `just miri` uses on its own inside a Nix shell. `nix
 flake check` builds what CI's `nix.yml` checks, and `nix fmt` formats the
 Nix files, the Typst code (typstyle) and the Typst harness's justfile.
@@ -47,9 +53,10 @@ git clone https://github.com/<your-username>/csan && cd csan
 
 The workspace centers on `crates/csan-core` (the cutter number library —
 normalization, models, generators, and the Cutter-Sanborn table), wrapped
-by four thin frontends: `crates/csan` (the `csan` binary),
+by five thin frontends: `crates/csan` (the `csan` binary),
 `crates/csan-typst` (the Typst WASM plugin, with the Typst package under
-`crates/csan-typst/pkg/`), `crates/csan-py` (Python bindings), and
+`crates/csan-typst/pkg/`), `crates/csan-py` (Python bindings),
+`crates/csan-rb` (Ruby bindings, the crate in `ext/csan/`), and
 `crates/csan-web` (JavaScript/npm bindings). Frontends stay thin: shared
 input handling belongs in the library (`Attribution::from_parts`,
 `CutterConfig::from_overrides`), not duplicated per binding. Lint policy
@@ -108,7 +115,11 @@ the version the flake has. Rust CI's Typst job runs `versions-check`,
 The npm package's build recipes are described in
 [`crates/csan-web/README.md`](crates/csan-web/README.md#building-from-source),
 the Python package's in
-[`crates/csan-py/README.md`](crates/csan-py/README.md#building-from-source).
+[`crates/csan-py/README.md`](crates/csan-py/README.md#building-from-source),
+and the gem's in
+[`crates/csan-rb/README.md`](crates/csan-rb/README.md#building-from-source)
+(`just rb-test`, `just rb-lint` and `just rb-build` run them from the
+root).
 
 ## Testing Strategy
 
@@ -131,14 +142,15 @@ This runs the core CI gates: `cargo check`/`test`/`clippy -D warnings`
 enabled), `cargo fmt --check`, `cargo doc -D warnings`, `cargo audit`, Miri,
 `dprint check`, and `cog check` for Conventional Commits. If `just checks`
 passes on your machine, your code likely passes on CI, which additionally
-builds and smoke-tests the Typst plugin, the Python wheel, and the npm
-package.
+builds and smoke-tests the Typst plugin, the Python wheel, the gem (with
+its tests and standardrb, on Ruby 3.3 and 4.0), and the npm package.
 
 ## Releasing
 
 `just release <major|minor|patch>` (on an up-to-date, clean `main`) bumps
-the workspace version, the `csan-core` dependency pin, and the Typst
-package version, prepends the release's section to `CHANGELOG.md` with
+the workspace version, the `csan-core` dependency pin, the Typst
+package version, and the gem's version (`lib/csan/version.rb`, its crate's
+`csan` pin and `Gemfile.lock`), prepends the release's section to `CHANGELOG.md` with
 git-cliff, then commits, tags, and pushes. It refuses a bump smaller than
 the unreleased breaking changes require. The tag starts the Release
 workflow, which uses [dist](https://opensource.axo.dev/cargo-dist/) to
@@ -149,15 +161,23 @@ release:
   (`csan_typst-<version>.tar.gz`);
 - the Python wheels (abi3, Linux/musllinux/macOS/Windows on x86_64 and
   aarch64) and sdist;
+- the Ruby gems: one per platform (`csan-<version>-<platform>.gem`, for
+  Ruby 3.3, 3.4 and 4.0 on Linux glibc/musl, macOS and Windows, x86_64 and
+  arm64; Windows on arm64 from Ruby 3.4) and the source gem
+  (`csan-<version>.gem`);
 - the Node npm package (`veralvx-csan-<version>.tgz`).
 
-Three workflows then publish the release, each only once the Release
+Four workflows then publish the release, each only once the Release
 workflow has succeeded and each with trusted publishing (the one-time setup
 is described at the top of each file):
 
 - `publish-pypi.yml` uploads the release's wheels and sdist to
   [PyPI](https://pypi.org/project/csan/) (it runs when the Release
   workflow completes);
+- `publish-rubygems.yml` pushes the release's gems to
+  [RubyGems](https://rubygems.org/gems/csan) (it runs when the Release
+  workflow completes; the source gem, which builds against `csan` from
+  crates.io, once crates.io has it);
 - `publish-npm.yml` publishes the release's npm tarball as
   [`@veralvx/csan`](https://www.npmjs.com/package/@veralvx/csan);
 - `publish-crates.yml` publishes `csan-core`, then `csan`, from the tag to
