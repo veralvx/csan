@@ -372,20 +372,20 @@ release semver:
   awk -v ver="$raw_version" '
     /^csan = / { hits += sub(/version = "=[^"]*"/, "version = \"=" ver "\"") }
     { print }
-    END { if (hits != 1) { print "Error: no csan version pin in the gem crate's Cargo.toml" > "/dev/stderr"; exit 1 } }
+    END { if (hits != 1) { print "Error: no csan version pin in crates/csan-rb/ext/csan/Cargo.toml" > "/dev/stderr"; exit 1 } }
   ' crates/csan-rb/ext/csan/Cargo.toml > gem.tmp
   mv gem.tmp crates/csan-rb/ext/csan/Cargo.toml
   awk -v ver="$raw_version" '
     /^  VERSION = "/ { $0 = "  VERSION = \"" ver "\""; hits++ }
     { print }
-    END { if (hits != 1) { print "Error: no VERSION in the gem's version.rb" > "/dev/stderr"; exit 1 } }
+    END { if (hits != 1) { print "Error: no VERSION in crates/csan-rb/lib/csan/version.rb" > "/dev/stderr"; exit 1 } }
   ' crates/csan-rb/lib/csan/version.rb > gem.tmp
   mv gem.tmp crates/csan-rb/lib/csan/version.rb
   # (its specs entry, and its CHECKSUMS entry, which has no checksum: a path gem)
   awk -v ver="$raw_version" '
     /^ +csan \([^)]*\)$/ { hits += sub(/\([^)]*\)/, "(" ver ")") }
     { print }
-    END { if (hits != 2) { print "Error: expected 2 csan entries in the gem's Gemfile.lock, found " hits+0 > "/dev/stderr"; exit 1 } }
+    END { if (hits != 2) { print "Error: expected 2 csan entries in crates/csan-rb/Gemfile.lock, found " hits+0 > "/dev/stderr"; exit 1 } }
   ' crates/csan-rb/Gemfile.lock > gem.tmp
   mv gem.tmp crates/csan-rb/Gemfile.lock
 
