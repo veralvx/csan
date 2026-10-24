@@ -42,6 +42,7 @@ pub use catalog::{
         CutterConfig, CutterGenerator, CutterLocMethod, CutterSanbornMethod, Detailed,
         DetailedError, detailed_json,
     },
+    language::{Language, MissingLanguage, UnknownLanguage},
     models::{Attribution, Author, CutterLoc, CutterSanborn, CutterType, Opus},
     normalization::NormalizationError,
 };
