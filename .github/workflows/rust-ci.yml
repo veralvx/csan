@@ -12,6 +12,7 @@ on:
       - "crates/csan-py/pyproject.toml"
       - "crates/csan-py/python/**"
       - "crates/csan-py/tests/**"
+      - "crates/csan-rb/**"
       - "crates/csan-web/examples/**"
       - "crates/csan-web/bin/**"
       - "justfile"
@@ -271,6 +272,48 @@ jobs:
 
       - name: Run the Python test suite
         run: pytest crates/csan-py/tests
+
+  ruby-gem:
+    name: Ruby gem (compile + minitest, Ruby ${{ matrix.ruby }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # the oldest and the newest Ruby the gem supports
+        ruby: ["3.3", "4.0"]
+    env:
+      RUSTUP_TOOLCHAIN: stable
+    defaults:
+      run:
+        working-directory: crates/csan-rb
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ruby-gem-${{ matrix.ruby }}
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+          working-directory: crates/csan-rb
+
+      - name: Compile the extension and run the test suite
+        run: bundle exec rake compile test
+
+      - name: Lint the Ruby code (standardrb)
+        run: bundle exec rake standard
+
+      - name: Smoke-test the executable
+        run: |
+          test "$(bundle exec ruby -Ilib exe/csan --surname Dickens --title "Oliver Twist")" = "D548o"
+          test "$(bundle exec ruby -Ilib exe/csan --method cutter-loc --surname Carter)" = "C378"
 
   npm-package:
     name: npm package (wasm-bindgen tests + wasm-pack build)

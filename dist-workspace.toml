@@ -19,3 +19,7 @@ install-updater = false
 # sdist, Node npm package), attached to the same GitHub Release; see
 # .github/workflows/release-extra-artifacts.yml.
 global-artifacts-jobs = ["./release-extra-artifacts"]
+# Build only the packages that ship dist's binaries (csan), not the whole
+# workspace: the bindings build with their own tools, and the Ruby gem's
+# crate needs Ruby and libclang, which the release runners need not have.
+precise-builds = true
