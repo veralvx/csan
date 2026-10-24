@@ -30,7 +30,10 @@ jobs:
           # The Ruby gem's development tools (crates/csan-rb/Gemfile.lock,
           # through standard's rubocop) include Ruby's own default gems,
           # under the Ruby License (`json`), or it or BSD-2-Clause (`drb`,
-          # `racc`): permissive, and never shipped in the gem.
+          # `racc`): permissive, and never shipped in the gem. `rb_sys`
+          # (which builds the source gem's extension) is MIT and Apache-2.0,
+          # as its gemspec lists them, but GitHub's dependency graph joins
+          # the two into an unknown `LicenseRef-bad-mit-apache-2.0`.
           allow-dependencies-licenses: >
-            pkg:gem/json, pkg:gem/drb, pkg:gem/racc
+            pkg:gem/json, pkg:gem/drb, pkg:gem/racc, pkg:gem/rb_sys
           comment-summary-in-pr: on-failure
