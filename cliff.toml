@@ -56,6 +56,12 @@ trim = true
 conventional_commits = true
 # Exclude commits that do not match the conventional commits specification.
 filter_unconventional = false
+# Put @-names (the Typst `@preview` namespace, `@veralvx/csan`, ...) in code:
+# the release notes come from this changelog, and GitHub takes a bare
+# `@name` there for a mention, listing that user among the contributors.
+commit_preprocessors = [
+  { pattern = '(^|[^`\w])@([\w-]+(?:/[\w.:-]*[\w])?)', replace = '${1}`@${2}`' },
+]
 # An array of regex based parsers for extracting data from the commit message.
 # Assigns commits to groups.
 # Optionally sets the commit's scope and can decide to exclude commits from further processing.
