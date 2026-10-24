@@ -12,7 +12,7 @@ JavaScript packages.
 ## Usage
 
 ```typ
-#import "@preview/csan:0.7.1": cutter-loc, cutter-sanborn
+#import "@preview/csan:0.8.0": cutter-loc, cutter-sanborn
 
 #cutter-sanborn(forename: "Charles", surname: "Dickens", title: "Oliver Twist")
 // -> "D548o"
@@ -28,7 +28,7 @@ Both functions return a string (unless `detailed: true`), so the result can
 go anywhere text can, for example on a spine label under a class number:
 
 ```typ
-#import "@preview/csan:0.7.1": cutter-sanborn
+#import "@preview/csan:0.8.0": cutter-sanborn
 
 #box(stroke: 0.5pt, inset: 8pt)[
   823.8 \
@@ -85,7 +85,7 @@ With `detailed: true`, the result has the keys `alpha_prefix`, `numeric`,
 matched), and `formatted`:
 
 ```typ
-#import "@preview/csan:0.7.1": cutter-sanborn
+#import "@preview/csan:0.8.0": cutter-sanborn
 
 #cutter-sanborn(surname: "Borges", detailed: true)
 // -> (alpha_prefix: "B", alpha_suffix: none, entry: "Borg",

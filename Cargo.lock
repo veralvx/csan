@@ -240,7 +240,7 @@ checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 
 [[package]]
 name = "csan"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "clap",
  "csan-core",
@@ -249,7 +249,7 @@ dependencies = [
 
 [[package]]
 name = "csan-core"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "derive_more",
  "serde",
@@ -258,7 +258,7 @@ dependencies = [
 
 [[package]]
 name = "csan-py"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "csan",
  "csan-core",
@@ -268,7 +268,7 @@ dependencies = [
 
 [[package]]
 name = "csan-rb"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "csan",
  "csan-core",
@@ -278,7 +278,7 @@ dependencies = [
 
 [[package]]
 name = "csan-typst"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "ciborium",
  "csan-core",
@@ -288,7 +288,7 @@ dependencies = [
 
 [[package]]
 name = "csan-web"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "csan",
  "csan-core",

@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-10-24
+
+### Added
+
+- Add a harness for the Typst package
+
+### Changed
+
+- Update README
+- Rewrite the package README for Typst Universe
+- Import the package by its @preview spec in the example
+- Align the README's table as dprint formats it
+- Merge pull request #20 from veralvx/claude/youthful-brahmagupta-6rcrfr
+- Merge pull request #21 from veralvx/claude/youthful-brahmagupta-6rcrfr
+- Name the author's parts forename and surname
+- Merge pull request #22 from veralvx/claude/youthful-brahmagupta-6rcrfr
+- Publish csan as a Ruby gem
+- Accept rb_sys's licence in dependency review
+- Merge pull request #23 from veralvx/claude/youthful-brahmagupta-6rcrfr
+- Merge pull request #24 from veralvx/claude/youthful-brahmagupta-6rcrfr
+
+### Fixed
+
+- Qualify the harness's recipes after the first from the root
+- Drop the apostrophes from the gem bumps' messages
+
 ## [0.7.1] - 2026-10-22
 
 ### Changed

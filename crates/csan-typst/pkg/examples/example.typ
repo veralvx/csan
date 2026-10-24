@@ -2,7 +2,7 @@
 // `just typst figures` renders it to examples/example.png, which the README
 // shows; `just typst examples-check` compiles it against the bundle.
 
-#import "@preview/csan:0.7.1": cutter-loc, cutter-sanborn
+#import "@preview/csan:0.8.0": cutter-loc, cutter-sanborn
 
 #set page(width: auto, height: auto, margin: 1cm, fill: white)
 
