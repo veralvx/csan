@@ -12,8 +12,9 @@
 //! _Rules for a Dictionary Catalogue_ say to "take account of every word
 //! except initial articles", and LC's shelflisting manual (G 100 §9) says to
 //! "ignore initial articles in the nominative case". So _A Christmas Carol_
-//! files under _Christmas_. The table in [`Language`]'s documentation lists
-//! each language's articles.
+//! files under _Christmas_. [`Language::strip_initial_article`] removes the
+//! article, and the table in [`Language`]'s documentation lists each
+//! language's articles.
 //!
 //! A word that is an article in one language is an ordinary word in another
 //! (English _Die Hard_), which is why the rule is keyed by the title's
@@ -36,6 +37,8 @@
 //! - all-caps Irish mutation prefixes;
 //! - the German and Icelandic oblique-case articles, deliberately, per
 //!   G 100's nominative rule (_Dem Andenken…_ files under _Dem_).
+
+mod articles;
 
 use std::fmt::{self, Display, Formatter, Write as _};
 use std::str::FromStr;
@@ -61,7 +64,9 @@ macro_rules! languages {
         /// Parse one from an ISO 639 code, a BCP 47 tag or a POSIX locale with
         /// [`FromStr`] (`"pt-BR".parse()`), or from an optional user input with
         /// [`Language::from_optional`]. It displays as its canonical code.
-        /// The table gives each language's codes and articles.
+        /// [`Language::strip_initial_article`] removes a title's initial
+        /// article in that language; the table gives each language's codes and
+        /// articles.
         ///
         /// | Language | Codes | Articles |
         /// | -------- | ----- | -------- |
@@ -175,6 +180,46 @@ languages! {
 }
 
 impl Language {
+    /// `title` without its initial article, when it starts with one that this
+    /// language recognizes and a letter or ASCII digit follows; otherwise
+    /// `None`, including for a title that is only an article. The result is a
+    /// subslice of `title`, so nothing is allocated.
+    ///
+    /// The article may follow anything but a letter or ASCII digit: spaces,
+    /// punctuation, symbols (`"¿El otoño?"`, `"'t Hooft"` in quotes). The
+    /// result starts at the first letter or ASCII digit after it, since MARC
+    /// counts the spaces and punctuation around an initial article as
+    /// nonfiling too. Letters match regardless of case but with their
+    /// diacritics, an apostrophe matches its typographic variants, and a
+    /// hyphen its Unicode forms. Irish also loses the `t`/`h` mutation prefix
+    /// after its article. Only one article is removed.
+    ///
+    /// Two limits follow from these rules. A digit other than an ASCII one
+    /// doesn't end the leading run, so `"１ The Bear"` (a fullwidth one)
+    /// loses its _The_. And an invisible format character between an article
+    /// and its space, such as U+200B, hides the article, so nothing is
+    /// stripped.
+    ///
+    /// # Examples
+    /// ```
+    /// use csan_core::Language;
+    ///
+    /// let english = Language::English;
+    /// assert_eq!(english.strip_initial_article("The Bear"), Some("Bear"));
+    /// assert_eq!(english.strip_initial_article("\"The 100 best\""), Some("100 best\""));
+    /// assert_eq!(english.strip_initial_article("Theory"), None);
+    /// assert_eq!(english.strip_initial_article("The"), None);
+    ///
+    /// let french = Language::French;
+    /// assert_eq!(french.strip_initial_article("L’Étranger"), Some("Étranger"));
+    /// let irish = Language::Irish;
+    /// assert_eq!(irish.strip_initial_article("An tUasal"), Some("Uasal"));
+    /// ```
+    #[must_use]
+    pub fn strip_initial_article(self, title: &str) -> Option<&str> {
+        articles::strip(self, title)
+    }
+
     /// The front door for frontends, like
     /// [`Attribution::from_parts`](crate::Attribution::from_parts): `None` and
     /// blank strings mean no language (`Ok(None)`), and anything else parses
