@@ -173,6 +173,12 @@ jobs:
           done
           echo "push=true" >> "$GITHUB_OUTPUT"
 
+      # The action adds its key to ~/.gem/credentials, and refuses to when
+      # one is there already.
+      - name: Drop the expired RubyGems credentials
+        if: steps.crates.outputs.push == 'true'
+        run: rm -f ~/.gem/credentials
+
       - name: Configure the RubyGems credentials again
         if: steps.crates.outputs.push == 'true'
         uses: rubygems/configure-rubygems-credentials@v2.1.0
