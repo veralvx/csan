@@ -17,7 +17,9 @@ module Csan
     ?surname: String?,
     ?title: String?,
     ?prefix_len: Integer?,
-    ?suffix_len: Integer?
+    ?suffix_len: Integer?,
+    ?lang: String?,
+    ?strip_article: boolish
   ) -> String
 
   def self.cutter_sanborn_detailed: (
@@ -25,33 +27,40 @@ module Csan
     ?surname: String?,
     ?title: String?,
     ?prefix_len: Integer?,
-    ?suffix_len: Integer?
+    ?suffix_len: Integer?,
+    ?lang: String?,
+    ?strip_article: boolish
   ) -> sanborn_parts
 
   def self.cutter_loc: (
     ?forename: String?,
     ?surname: String?,
     ?title: String?,
-    ?max_len: Integer?
+    ?max_len: Integer?,
+    ?lang: String?,
+    ?strip_article: boolish
   ) -> String
 
   def self.cutter_loc_detailed: (
     ?forename: String?,
     ?surname: String?,
     ?title: String?,
-    ?max_len: Integer?
+    ?max_len: Integer?,
+    ?lang: String?,
+    ?strip_article: boolish
   ) -> loc_parts
 
   def self.run_cli: (Array[String] args) -> Integer
 
-  # The extension: positional arguments, in the order of the keywords above.
+  # The extension, internal to the gem (lib/csan.rb is its only caller):
+  # positional arguments, in the order of the keywords above.
   module Native
     VERSION: String
 
-    def self.cutter_sanborn: (String?, String?, String?, Integer?, Integer?) -> String
-    def self.cutter_sanborn_detailed: (String?, String?, String?, Integer?, Integer?) -> sanborn_parts
-    def self.cutter_loc: (String?, String?, String?, Integer?) -> String
-    def self.cutter_loc_detailed: (String?, String?, String?, Integer?) -> loc_parts
+    def self.cutter_sanborn: (String?, String?, String?, Integer?, Integer?, String?, boolish) -> String
+    def self.cutter_sanborn_detailed: (String?, String?, String?, Integer?, Integer?, String?, boolish) -> sanborn_parts
+    def self.cutter_loc: (String?, String?, String?, Integer?, String?, boolish) -> String
+    def self.cutter_loc_detailed: (String?, String?, String?, Integer?, String?, boolish) -> loc_parts
     def self.run_cli: (Array[String]) -> Integer
   end
 end
