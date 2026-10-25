@@ -23,10 +23,21 @@ end
 # that is not an Integer raises `TypeError` (a Float is truncated), and a
 # negative one `RangeError`.
 #
+# Every function also takes `lang` and `strip_article`: with a truthy
+# `strip_article`, the title is filed without its initial article in the
+# language `lang` names, an ISO 639 code, a BCP 47 tag or a POSIX locale
+# (`"en"`, `"pt-BR"`), case-insensitive; `csan --help` lists them all.
+# `lang` alone changes nothing, a blank `lang` counts as absent, and author
+# names are never stripped. An unknown `lang` (even with `strip_article`
+# off), or `strip_article` without `lang`, raises `ArgumentError`, and a
+# `lang` that is not a String `TypeError`.
+#
 # @example
 #   Csan.cutter_sanborn(forename: "Charles", surname: "Dickens", title: "Oliver Twist")
 #   # => "D548o"
 #   Csan.cutter_loc(surname: "Carter") # => "C378"
+#   Csan.cutter_sanborn(surname: "Dickens", title: "A Christmas Carol", lang: "en", strip_article: true)
+#   # => "D548c"
 module Csan
   # The Cutter-Sanborn three-figure number.
   #
@@ -38,10 +49,15 @@ module Csan
   #   number (default 1)
   # @param suffix_len [Integer, nil] letters of the title in the work mark
   #   (default 1)
+  # @param lang [String, nil] the work's language, for `strip_article`
+  # @param strip_article [Boolean, nil] file the title without its initial
+  #   article in `lang` when truthy (default false)
   # @return [String] the number, e.g. "D548o"
-  # @raise [ArgumentError] on unusable input
-  def self.cutter_sanborn(forename: nil, surname: nil, title: nil, prefix_len: nil, suffix_len: nil)
-    Native.cutter_sanborn(forename, surname, title, prefix_len, suffix_len)
+  # @raise [ArgumentError] on unusable input, an unknown `lang`, or
+  #   `strip_article` without `lang`
+  def self.cutter_sanborn(forename: nil, surname: nil, title: nil, prefix_len: nil, suffix_len: nil,
+    lang: nil, strip_article: false)
+    Native.cutter_sanborn(forename, surname, title, prefix_len, suffix_len, lang, strip_article)
   end
 
   # The Cutter-Sanborn number's parts.
@@ -51,9 +67,10 @@ module Csan
   # @return [Hash{Symbol => String, Integer, nil}] `:alpha_prefix`,
   #   `:numeric`, `:alpha_suffix` (nil without a work mark), `:entry` (the
   #   table entry that matched), and `:formatted`
-  # @raise [ArgumentError] on unusable input
-  def self.cutter_sanborn_detailed(forename: nil, surname: nil, title: nil, prefix_len: nil, suffix_len: nil)
-    Native.cutter_sanborn_detailed(forename, surname, title, prefix_len, suffix_len)
+  # @raise [ArgumentError] as {cutter_sanborn} does
+  def self.cutter_sanborn_detailed(forename: nil, surname: nil, title: nil, prefix_len: nil, suffix_len: nil,
+    lang: nil, strip_article: false)
+    Native.cutter_sanborn_detailed(forename, surname, title, prefix_len, suffix_len, lang, strip_article)
   end
 
   # The Library of Congress cutter number.
@@ -63,10 +80,15 @@ module Csan
   # @param title [String, nil] the work's title, cuttered when there is no
   #   author
   # @param max_len [Integer, nil] digits in the number (default 3, at most 4)
+  # @param lang [String, nil] the work's language, for `strip_article`
+  # @param strip_article [Boolean, nil] file the title without its initial
+  #   article in `lang` when truthy (default false)
   # @return [String] the number, e.g. "C378"
-  # @raise [ArgumentError] on unusable input
-  def self.cutter_loc(forename: nil, surname: nil, title: nil, max_len: nil)
-    Native.cutter_loc(forename, surname, title, max_len)
+  # @raise [ArgumentError] on unusable input, an unknown `lang`, or
+  #   `strip_article` without `lang`
+  def self.cutter_loc(forename: nil, surname: nil, title: nil, max_len: nil,
+    lang: nil, strip_article: false)
+    Native.cutter_loc(forename, surname, title, max_len, lang, strip_article)
   end
 
   # The Library of Congress number's parts.
@@ -75,9 +97,10 @@ module Csan
   #
   # @return [Hash{Symbol => String, Integer}] `:alpha_prefix`, `:numeric`,
   #   and `:formatted`
-  # @raise [ArgumentError] on unusable input
-  def self.cutter_loc_detailed(forename: nil, surname: nil, title: nil, max_len: nil)
-    Native.cutter_loc_detailed(forename, surname, title, max_len)
+  # @raise [ArgumentError] as {cutter_loc} does
+  def self.cutter_loc_detailed(forename: nil, surname: nil, title: nil, max_len: nil,
+    lang: nil, strip_article: false)
+    Native.cutter_loc_detailed(forename, surname, title, max_len, lang, strip_article)
   end
 
   # Runs the `csan` command-line interface, the engine of the gem's `csan`

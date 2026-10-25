@@ -1,5 +1,6 @@
 //! Defines the [`Attribution`] model.
 
+use crate::catalog::language::Language;
 use crate::catalog::models::{author::Author, opus::Opus};
 
 /// The bibliographic information a Cutter number is generated from.
@@ -76,6 +77,39 @@ impl Attribution {
             (None, None) => None,
         }
     }
+
+    /// Sets the language whose initial article the entry's title is filed
+    /// without, as [`Opus::with_article_language`] does; `None` files the
+    /// title as written. It applies to the title of `Both` and `OpusOnly`, and
+    /// does nothing for `AuthorOnly`. Author names are never stripped: an
+    /// article in a name is part of the heading (LC G 100 §10).
+    ///
+    /// Frontends call it after [`from_parts`](Self::from_parts).
+    ///
+    /// # Examples
+    /// ```
+    /// use csan_core::{Attribution, Language};
+    ///
+    /// let entry = Attribution::from_parts(None, Some("Dickens"), Some("A Christmas Carol"))
+    ///     .map(|entry| entry.with_article_language(Some(Language::English)));
+    /// assert!(matches!(
+    ///     entry,
+    ///     Some(Attribution::Both { ref opus, .. }) if opus.filing_title() == "Christmas Carol"
+    /// ));
+    /// ```
+    #[must_use]
+    pub fn with_article_language(self, language: Option<Language>) -> Self {
+        match self {
+            Attribution::Both { author, opus } => Attribution::Both {
+                author,
+                opus: opus.with_article_language(language),
+            },
+            Attribution::OpusOnly(opus) => {
+                Attribution::OpusOnly(opus.with_article_language(language))
+            }
+            Attribution::AuthorOnly(author) => Attribution::AuthorOnly(author),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -123,5 +157,68 @@ mod tests {
         assert_eq!(author.forename(), Some("Charles"));
         assert_eq!(author.surname(), Some("Dickens"));
         assert_eq!(opus.title(), "Oliver");
+    }
+
+    /// The article language of the entry's title, or `None` for `AuthorOnly`.
+    fn article_language(entry: &Attribution) -> Option<Language> {
+        match entry {
+            Attribution::Both { opus, .. } | Attribution::OpusOnly(opus) => opus.article_language(),
+            Attribution::AuthorOnly(_) => None,
+        }
+    }
+
+    #[test]
+    fn article_language_reaches_the_title() {
+        let english = Some(Language::English);
+        for entry in [
+            Attribution::from_parts(None, Some("Dickens"), Some("A Christmas Carol")),
+            Attribution::from_parts(None, None, Some("A Christmas Carol")),
+        ] {
+            let entry = entry.map(|entry| entry.with_article_language(english));
+            let Some(Attribution::Both { opus, .. } | Attribution::OpusOnly(opus)) = entry else {
+                panic!("expected a title");
+            };
+            assert_eq!(opus.article_language(), english);
+            assert_eq!(opus.filing_title(), "Christmas Carol");
+        }
+    }
+
+    #[test]
+    fn last_article_language_wins() {
+        for entry in [
+            Attribution::Both {
+                author: Author::surname_only("Faulkner"),
+                opus: Opus::new("The Bear"),
+            },
+            Attribution::OpusOnly(Opus::new("The Bear")),
+        ] {
+            let entry = entry
+                .with_article_language(Some(Language::French))
+                .with_article_language(Some(Language::English));
+            assert_eq!(article_language(&entry), Some(Language::English));
+            let entry = entry.with_article_language(None);
+            assert_eq!(article_language(&entry), None);
+        }
+    }
+
+    #[test]
+    fn author_names_are_never_stripped() {
+        // G 100 §10: an article in a name is part of the heading.
+        let entry =
+            Attribution::from_parts(Some("Jean de"), Some("La Fontaine"), Some("Les Fables"))
+                .map(|entry| entry.with_article_language(Some(Language::French)));
+        let Some(Attribution::Both { author, opus }) = entry else {
+            panic!("expected a both attribution");
+        };
+        assert_eq!(author.forename(), Some("Jean de"));
+        assert_eq!(author.surname(), Some("La Fontaine"));
+        assert_eq!(opus.filing_title(), "Fables");
+
+        let author_only = Attribution::AuthorOnly(Author::surname_only("La Fontaine"))
+            .with_article_language(Some(Language::French));
+        let Attribution::AuthorOnly(kept) = author_only else {
+            panic!("expected an author-only attribution");
+        };
+        assert_eq!(kept.surname(), Some("La Fontaine"));
     }
 }

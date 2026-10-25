@@ -21,6 +21,9 @@ crates/csan-web/pkg-web/
 # Python bytecode (pytest runs)
 __pycache__/
 *.py[cod]
+# The Python extension that `maturin develop` (`just py-test`) builds in place
+crates/csan-py/python/csan/*.so
+crates/csan-py/python/csan/*.pyd
 # The Ruby gem's build outputs (rake compile, rake native gem, rake source_gem)
 crates/csan-rb/tmp/
 crates/csan-rb/pkg/

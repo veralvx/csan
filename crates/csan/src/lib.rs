@@ -10,7 +10,8 @@ use clap::builder::RangedU64ValueParser;
 use clap::error::ErrorKind;
 use clap::{Parser, ValueEnum};
 use csan_core::{
-    Attribution, CutterConfig, CutterGenerator, CutterLocMethod, CutterSanbornMethod, detailed_json,
+    Attribution, CutterConfig, CutterGenerator, CutterLocMethod, CutterSanbornMethod, Language,
+    MissingLanguage, detailed_json,
 };
 use std::ffi::OsString;
 use std::io::{self, Write};
@@ -45,6 +46,25 @@ fn length_parser() -> RangedU64ValueParser<usize> {
     RangedU64ValueParser::new().range(..=u64::from(u32::MAX))
 }
 
+/// The long help of `--lang`: what it takes, and every language as
+/// `name: codes`, sorted by name (`Language::ALL` is in code order).
+fn lang_long_help() -> String {
+    let mut languages: Vec<Language> = Language::ALL.to_vec();
+    languages.sort_by_key(|language| language.name());
+    let mut help = String::from(
+        "The work's language, for the language-dependent rules (--strip-article): an ISO 639 \
+         code, a BCP 47 tag or a POSIX locale (en, pt-BR, ca@valencia, ...), case-insensitive. \
+         --lang alone changes nothing.\n\nLanguages:",
+    );
+    for language in languages {
+        help.push_str("\n  ");
+        help.push_str(language.name());
+        help.push_str(": ");
+        help.push_str(&language.codes().join(", "));
+    }
+    help
+}
+
 /// Generate Cutter call numbers for library cataloging.
 ///
 /// Provide at least one non-blank input (`--forename`, `--surname`,
@@ -53,6 +73,10 @@ fn length_parser() -> RangedU64ValueParser<usize> {
 // `bin_name` keeps the usage line `csan` everywhere (not `csan.exe` on
 // Windows), as the Python and npm commands print it.
 #[command(name = "csan", bin_name = "csan", version, about)]
+// New options must not be breaking changes, so the struct is built by
+// parsing (`Cli::parse_from`), never with a literal. (A doc comment here
+// would print in `--help`.)
+#[non_exhaustive]
 pub struct Cli {
     /// The method to generate the number with
     #[arg(long, value_enum, value_name = "METHOD", default_value_t = Method::default())]
@@ -84,6 +108,14 @@ pub struct Cli {
     #[arg(long, value_name = "N", default_value_t = CutterConfig::default().max_len, value_parser = length_parser())]
     pub max_len: usize,
 
+    /// The work's language, for --strip-article: a language code (en, pt-BR, ...)
+    #[arg(long, value_name = "LANG", value_parser = str::parse::<Language>, long_help = lang_long_help())]
+    pub lang: Option<Language>,
+
+    /// Disregard the title's initial article in the --lang language
+    #[arg(long, requires = "lang")]
+    pub strip_article: bool,
+
     /// Emit a JSON object with the number's parts instead of plain text
     #[arg(long)]
     pub json: bool,
@@ -92,9 +124,15 @@ pub struct Cli {
 /// Executes a parsed [`Cli`] invocation, returning the text to print.
 ///
 /// # Errors
-/// Returns a human-readable message when no usable input was provided, or
-/// when Cutter generation fails (e.g. a name that normalizes to nothing).
+/// Returns a human-readable message when no usable input was provided,
+/// when `strip_article` is set without `lang`, or when Cutter generation
+/// fails (e.g. a name that normalizes to nothing).
 pub fn run(cli: &Cli) -> Result<String, String> {
+    // Parsing already requires --lang with --strip-article, but the fields
+    // are public, so a caller can change them after parsing.
+    let article_language = Language::for_rule(cli.lang, cli.strip_article)
+        .map_err(|MissingLanguage| String::from("--strip-article requires --lang"))?;
+
     let attribution = Attribution::from_parts(
         cli.forename.as_deref(),
         cli.surname.as_deref(),
@@ -102,7 +140,8 @@ pub fn run(cli: &Cli) -> Result<String, String> {
     )
     .ok_or_else(|| {
         String::from("provide at least one non-blank input: --forename, --surname, or --title")
-    })?;
+    })?
+    .with_article_language(article_language);
 
     let config = CutterConfig {
         prefix_len: cli.prefix_len,
@@ -578,5 +617,104 @@ mod tests {
             1,
             "only the chosen method"
         );
+    }
+
+    #[test]
+    fn strip_article_uses_the_lang_language() {
+        let dickens = ["--surname", "Dickens", "--title", "A Christmas Carol"];
+        let generate = |extra: &[&str]| {
+            run(&parse(&[&["csan"][..], extra, &dickens].concat()).unwrap()).unwrap()
+        };
+        assert_eq!(generate(&[]), "D548a");
+        assert_eq!(generate(&["--lang", "en", "--strip-article"]), "D548c");
+        // Any accepted code works, in any case, and so does the = form.
+        assert_eq!(generate(&["--lang=EN-us", "--strip-article"]), "D548c");
+        // --lang alone changes nothing.
+        assert_eq!(generate(&["--lang", "en"]), "D548a");
+
+        let loc = parse(&[
+            "csan",
+            "--method",
+            "cutter-loc",
+            "--lang",
+            "en",
+            "--strip-article",
+            "--title",
+            "The 100 best recipes",
+        ])
+        .unwrap();
+        assert_eq!(run(&loc).unwrap(), "A153");
+    }
+
+    #[test]
+    fn strip_article_requires_lang() {
+        let err = parse(&["csan", "--strip-article", "--surname", "X"]).unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
+        let outcome = execute(
+            ["csan", "--strip-article", "--surname", "X"],
+            Styling::default(),
+        );
+        assert_eq!(outcome.code, 2);
+        assert!(
+            outcome.stderr.contains("--lang <LANG>"),
+            "{}",
+            outcome.stderr
+        );
+
+        // The fields are public: a Cli changed after parsing must not have
+        // its switch silently ignored.
+        let mut cli = parse(&["csan", "--surname", "Dickens", "--title", "The Bear"]).unwrap();
+        cli.strip_article = true;
+        assert_eq!(run(&cli).unwrap_err(), "--strip-article requires --lang");
+        cli.lang = Some(Language::English);
+        assert_eq!(run(&cli).unwrap(), "D548b");
+    }
+
+    #[test]
+    fn lang_rejects_unknown_and_blank_codes() {
+        for code in ["xx", "", "val"] {
+            let err = parse(&["csan", "--lang", code, "--surname", "X"]).unwrap_err();
+            assert_eq!(err.kind(), ErrorKind::ValueValidation, "{code:?}");
+            let message = err.to_string();
+            assert!(
+                message.contains(&format!(
+                    "unknown language \"{code}\" (expected one of: af, br,"
+                )),
+                "{message}"
+            );
+        }
+        let outcome = execute(
+            ["csan", "--lang", "xx", "--surname", "X"],
+            Styling::default(),
+        );
+        assert_eq!(outcome.code, 2);
+    }
+
+    #[test]
+    fn lang_help_lists_every_language_by_name() {
+        let long = execute(["csan", "--help"], Styling::default()).stdout;
+        let mut names: Vec<&str> = Language::ALL
+            .iter()
+            .map(|language| language.name())
+            .collect();
+        names.sort_unstable();
+        let mut last = 0;
+        for name in names {
+            let language = Language::ALL
+                .iter()
+                .find(|language| language.name() == name)
+                .unwrap();
+            let line = format!("{name}: {}", language.codes().join(", "));
+            let at = long
+                .find(&line)
+                .unwrap_or_else(|| panic!("{line:?} not in --help"));
+            assert!(at > last, "{name} out of order");
+            last = at;
+        }
+        // The short help keeps one line per option, without the list.
+        let short = execute(["csan", "-h"], Styling::default()).stdout;
+        assert!(short.contains("--lang <LANG>"));
+        assert!(short.contains("--strip-article"));
+        assert!(!short.contains("Afrikaans"));
     }
 }

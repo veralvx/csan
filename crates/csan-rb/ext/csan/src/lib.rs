@@ -16,26 +16,47 @@ use core::fmt;
 use core::iter;
 use csan_core::{
     Attribution, CutterConfig, CutterGenerator as _, CutterLoc, CutterLocMethod, CutterSanborn,
-    CutterSanbornMethod, detailed_json,
+    CutterSanbornMethod, Language, MissingLanguage, detailed_json,
 };
 use magnus::value::ReprValue as _;
 use magnus::{Error, IntoValue as _, RHash, Ruby, Value};
 use serde_json::Value as Json;
 
-/// Builds the [`Attribution`] for a set of optional inputs, or Ruby's
-/// `ArgumentError`.
+/// The language the title is filed in, from the `lang` and
+/// `strip_article` arguments: `None` when the switch is off.
+///
+/// `lang` is parsed even with the switch off, so a bad code is always an
+/// `ArgumentError`; a blank `lang` counts as absent. The exported functions
+/// call it before checking their inputs, so a language error comes first,
+/// as in the CLI.
+fn article_language(
+    ruby: &Ruby,
+    lang: Option<&str>,
+    strip_article: bool,
+) -> Result<Option<Language>, Error> {
+    let language = Language::from_optional(lang)
+        .map_err(|error| Error::new(ruby.exception_arg_error(), error.to_string()))?;
+    Language::for_rule(language, strip_article).map_err(|MissingLanguage| {
+        Error::new(ruby.exception_arg_error(), "strip_article requires lang")
+    })
+}
+
+/// Builds the [`Attribution`] for a set of optional inputs, with its title
+/// filed in `article_language`, or Ruby's `ArgumentError`.
 fn attribution(
     ruby: &Ruby,
     forename: Option<&str>,
     surname: Option<&str>,
     title: Option<&str>,
+    article_language: Option<Language>,
 ) -> Result<Attribution, Error> {
-    Attribution::from_parts(forename, surname, title).ok_or_else(|| {
+    let entry = Attribution::from_parts(forename, surname, title).ok_or_else(|| {
         Error::new(
             ruby.exception_arg_error(),
             "provide at least one non-blank input: forename, surname, or title",
         )
-    })
+    })?;
+    Ok(entry.with_article_language(article_language))
 }
 
 /// Maps a failure to Ruby's `ArgumentError`, prefixed with `context`.
@@ -52,8 +73,9 @@ fn sanborn(
     title: Option<&str>,
     prefix_len: Option<usize>,
     suffix_len: Option<usize>,
+    article_language: Option<Language>,
 ) -> Result<CutterSanborn, Error> {
-    let entry = attribution(ruby, forename, surname, title)?;
+    let entry = attribution(ruby, forename, surname, title, article_language)?;
     let config = CutterConfig::from_overrides(prefix_len, suffix_len, None);
     CutterSanbornMethod::generate(&entry, config)
         .map_err(|error| argument_error(ruby, "cutter generation failed", &error))
@@ -66,8 +88,9 @@ fn loc(
     surname: Option<&str>,
     title: Option<&str>,
     max_len: Option<usize>,
+    article_language: Option<Language>,
 ) -> Result<CutterLoc, Error> {
-    let entry = attribution(ruby, forename, surname, title)?;
+    let entry = attribution(ruby, forename, surname, title, article_language)?;
     let config = CutterConfig::from_overrides(None, None, max_len);
     CutterLocMethod::generate(&entry, config)
         .map_err(|error| argument_error(ruby, "cutter generation failed", &error))
@@ -133,6 +156,10 @@ fn detailed_hash(ruby: &Ruby, value: &Json) -> Result<RHash, Error> {
     clippy::needless_pass_by_value,
     reason = "magnus passes Ruby's arguments as owned values"
 )]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one parameter per Ruby argument, plus the interpreter handle"
+)]
 fn cutter_sanborn(
     ruby: &Ruby,
     forename: Option<String>,
@@ -140,7 +167,10 @@ fn cutter_sanborn(
     title: Option<String>,
     prefix_len: Option<usize>,
     suffix_len: Option<usize>,
+    lang: Option<String>,
+    strip_article: bool,
 ) -> Result<String, Error> {
+    let language = article_language(ruby, lang.as_deref(), strip_article)?;
     let cutter = sanborn(
         ruby,
         forename.as_deref(),
@@ -148,6 +178,7 @@ fn cutter_sanborn(
         title.as_deref(),
         prefix_len,
         suffix_len,
+        language,
     )?;
     Ok(cutter.to_string())
 }
@@ -158,6 +189,10 @@ fn cutter_sanborn(
     clippy::needless_pass_by_value,
     reason = "magnus passes Ruby's arguments as owned values"
 )]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one parameter per Ruby argument, plus the interpreter handle"
+)]
 fn cutter_sanborn_detailed(
     ruby: &Ruby,
     forename: Option<String>,
@@ -165,7 +200,10 @@ fn cutter_sanborn_detailed(
     title: Option<String>,
     prefix_len: Option<usize>,
     suffix_len: Option<usize>,
+    lang: Option<String>,
+    strip_article: bool,
 ) -> Result<RHash, Error> {
+    let language = article_language(ruby, lang.as_deref(), strip_article)?;
     let cutter = sanborn(
         ruby,
         forename.as_deref(),
@@ -173,6 +211,7 @@ fn cutter_sanborn_detailed(
         title.as_deref(),
         prefix_len,
         suffix_len,
+        language,
     )?;
     let value = detailed_json(&cutter)
         .map_err(|error| argument_error(ruby, "detailed cutter value failed", &error))?;
@@ -190,13 +229,17 @@ fn cutter_loc(
     surname: Option<String>,
     title: Option<String>,
     max_len: Option<usize>,
+    lang: Option<String>,
+    strip_article: bool,
 ) -> Result<String, Error> {
+    let language = article_language(ruby, lang.as_deref(), strip_article)?;
     let cutter = loc(
         ruby,
         forename.as_deref(),
         surname.as_deref(),
         title.as_deref(),
         max_len,
+        language,
     )?;
     Ok(cutter.to_string())
 }
@@ -213,13 +256,17 @@ fn cutter_loc_detailed(
     surname: Option<String>,
     title: Option<String>,
     max_len: Option<usize>,
+    lang: Option<String>,
+    strip_article: bool,
 ) -> Result<RHash, Error> {
+    let language = article_language(ruby, lang.as_deref(), strip_article)?;
     let cutter = loc(
         ruby,
         forename.as_deref(),
         surname.as_deref(),
         title.as_deref(),
         max_len,
+        language,
     )?;
     let value = detailed_json(&cutter)
         .map_err(|error| argument_error(ruby, "detailed cutter value failed", &error))?;
@@ -249,13 +296,13 @@ mod entry {
     #[magnus::init]
     fn init(ruby: &Ruby) -> Result<(), Error> {
         let native = ruby.define_module("Csan")?.define_module("Native")?;
-        native.define_module_function("cutter_sanborn", function!(cutter_sanborn, 5))?;
+        native.define_module_function("cutter_sanborn", function!(cutter_sanborn, 7))?;
         native.define_module_function(
             "cutter_sanborn_detailed",
-            function!(cutter_sanborn_detailed, 5),
+            function!(cutter_sanborn_detailed, 7),
         )?;
-        native.define_module_function("cutter_loc", function!(cutter_loc, 4))?;
-        native.define_module_function("cutter_loc_detailed", function!(cutter_loc_detailed, 4))?;
+        native.define_module_function("cutter_loc", function!(cutter_loc, 6))?;
+        native.define_module_function("cutter_loc_detailed", function!(cutter_loc_detailed, 6))?;
         native.define_module_function("run_cli", function!(run_cli, 1))?;
         native.const_set("VERSION", env!("CARGO_PKG_VERSION"))?;
         Ok(())

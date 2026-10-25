@@ -37,6 +37,22 @@ raises `ArgumentError`; a length that is not an Integer raises `TypeError`,
 and a negative one `RangeError`. [`sig/csan.rbs`](https://github.com/veralvx/csan/blob/main/crates/csan-rb/sig/csan.rbs)
 holds the type signatures.
 
+Every function also takes `lang` and `strip_article`: with a truthy
+`strip_article`, the title is filed without its initial article in the
+language `lang` names (an ISO 639 code, a BCP 47 tag or a POSIX locale,
+case-insensitive; `csan --help` lists them all). `lang` alone changes
+nothing, a blank `lang` counts as absent, and author names are never
+stripped. An unknown `lang` (even with `strip_article` off), or
+`strip_article` without `lang`, raises `ArgumentError`, and a `lang` that
+is not a String `TypeError`.
+
+```ruby
+Csan.cutter_sanborn(surname: "Dickens", title: "A Christmas Carol", lang: "en", strip_article: true)
+# => "D548c"
+Csan.cutter_loc(title: "The Bear", lang: "en", strip_article: true)
+# => "B437"
+```
+
 The executable is the same interface as the standalone Rust binary
 (options, help, messages, and exit codes):
 

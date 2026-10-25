@@ -34,6 +34,12 @@ pub trait UsesTable {
     /// name (the *floor*), while single-letter names take the first entry
     /// above them, per Cutter-Sanborn convention.
     ///
+    /// An [`Attribution::OpusOnly`] entry is looked up by its
+    /// [filing title](crate::Opus::filing_title), so a title's initial
+    /// article, when its language is set, is disregarded; when the filing
+    /// title has no letters (_The 100_ under English), by the title as
+    /// written.
+    ///
     /// # Returns
     /// A tuple containing:
     /// * `&'static str`: The matched key from the table.
@@ -80,9 +86,9 @@ pub trait UsesTable {
                 }
             }
 
-            Attribution::OpusOnly(opus) => {
-                capitalize_ascii(to_ascii_alphabetic(Cow::Borrowed(opus.title()))?)
-            }
+            Attribution::OpusOnly(opus) => opus.compute_on_filing_title(|title| {
+                to_ascii_alphabetic(Cow::Borrowed(title)).map(capitalize_ascii)
+            })?,
         };
 
         let resolved_prefix = alphabetic_prefix(&working_name, prefix_len);
@@ -150,7 +156,9 @@ where
     ///
     /// Uses `config.prefix_len` letters from the composed name for the call
     /// number prefix and, when the entry is [`Attribution::Both`], up to
-    /// `config.suffix_len` letters of the title for the lowercase work mark.
+    /// `config.suffix_len` letters of the
+    /// [filing title](crate::Opus::filing_title) for the lowercase work mark
+    /// (of the title as written when the filing title has no letters).
     /// The work mark is best-effort: a title that cannot be normalized, or a
     /// `suffix_len` of `0`, simply yields no work mark.
     ///
@@ -209,9 +217,129 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::catalog::language::Language;
     use crate::catalog::models::Opus;
 
     use super::*;
+
+    /// Generates with the default config, the entry's title filed in
+    /// `language`.
+    fn filed(entry: Attribution, language: Language) -> Result<CutterSanborn, NormalizationError> {
+        CutterSanbornMethod::generate(
+            &entry.with_article_language(Some(language)),
+            CutterConfig::default(),
+        )
+    }
+
+    /// An entry with an author (surname only) and a title.
+    fn both(surname: &str, title: &str) -> Attribution {
+        Attribution::Both {
+            author: Author::surname_only(surname),
+            opus: Opus::new(title),
+        }
+    }
+
+    #[test]
+    fn work_mark_disregards_the_initial_article() {
+        let unfiled = |surname, title| {
+            CutterSanbornMethod::generate(&both(surname, title), CutterConfig::default())
+                .unwrap()
+                .to_string()
+        };
+        assert_eq!(unfiled("Dickens", "A Christmas Carol"), "D548a");
+        assert_eq!(
+            filed(both("Dickens", "A Christmas Carol"), Language::English)
+                .unwrap()
+                .to_string(),
+            "D548c"
+        );
+        // A numeral after the article: the mark is the first letter, as for
+        // _39 Steps_.
+        assert_eq!(unfiled("Buchan", "The 39 Steps"), "B918t");
+        assert_eq!(
+            filed(both("Buchan", "The 39 Steps"), Language::English)
+                .unwrap()
+                .to_string(),
+            "B918s"
+        );
+        // The fallback: _The 100_ keeps today's mark.
+        assert_eq!(
+            filed(both("Dickens", "The 100"), Language::English)
+                .unwrap()
+                .to_string(),
+            "D548t"
+        );
+        // A longer mark takes the filing title's letters.
+        let long = CutterSanbornMethod::generate(
+            &both("Dickens", "A Christmas Carol").with_article_language(Some(Language::English)),
+            CutterConfig {
+                suffix_len: 3,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(long.alpha_suffix(), Some("chr"));
+    }
+
+    #[test]
+    fn author_names_keep_their_articles() {
+        // LC G 100 §10: an article in a name is part of the heading.
+        let fables = filed(both("La Fontaine", "Les Fables"), Language::French).unwrap();
+        assert_eq!(fables.to_string(), "L166f");
+        assert_eq!(fables.entry(), "Lafont");
+    }
+
+    #[test]
+    fn title_entry_disregards_the_initial_article() {
+        let bear = filed(
+            Attribution::OpusOnly(Opus::new("The Bear")),
+            Language::English,
+        )
+        .unwrap();
+        assert_eq!(bear.entry(), "Bear");
+        assert_eq!(bear.numeric(), 368);
+        assert_eq!(bear.alpha_prefix(), "B");
+        assert_eq!(
+            CutterSanbornMethod::generate(
+                &Attribution::OpusOnly(Opus::new("The Bear")),
+                CutterConfig::default()
+            )
+            .unwrap()
+            .to_string(),
+            "T375"
+        );
+        // The fallback: `100` has no letters, so _The 100_ is filed as
+        // written, as today.
+        assert_eq!(
+            filed(
+                Attribution::OpusOnly(Opus::new("The 100")),
+                Language::English
+            )
+            .unwrap()
+            .to_string(),
+            "T374"
+        );
+        // Other errors propagate, quoting the filing title.
+        let error = filed(
+            Attribution::OpusOnly(Opus::new("The Война")),
+            Language::English,
+        );
+        assert!(matches!(error, Err(NormalizationError::NonAsciiAlpha(s)) if s == "Война"));
+    }
+
+    #[test]
+    fn article_language_through_from_parts() {
+        let entry = Attribution::from_parts(None, Some("Dickens"), Some("A Christmas Carol"))
+            .map(|entry| entry.with_article_language(Some(Language::English)))
+            .unwrap();
+        let generate = |attribution: &Attribution| {
+            CutterSanbornMethod::generate(attribution, CutterConfig::default())
+                .unwrap()
+                .to_string()
+        };
+        assert_eq!(generate(&entry), "D548c");
+        assert_eq!(generate(&entry.with_article_language(None)), "D548a");
+    }
 
     #[test]
     fn cutter_sanborn_general() {

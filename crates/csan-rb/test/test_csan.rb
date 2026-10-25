@@ -102,6 +102,89 @@ class TestErrors < Minitest::Test
   end
 end
 
+class TestArticles < Minitest::Test
+  FUNCTIONS = TestErrors::FUNCTIONS
+  ENGLISH = {lang: "en", strip_article: true}.freeze
+  DICKENS = {surname: "Dickens", title: "A Christmas Carol"}.freeze
+
+  def test_strip_article_files_the_title_without_its_article
+    assert_equal "D548a", Csan.cutter_sanborn(**DICKENS)
+    assert_equal "D548c", Csan.cutter_sanborn(**DICKENS, **ENGLISH)
+    # Any accepted code works, in any case.
+    assert_equal "D548c", Csan.cutter_sanborn(**DICKENS, lang: "EN-us", strip_article: true)
+    assert_equal "T443", Csan.cutter_loc(title: "The Bear")
+    assert_equal "B437", Csan.cutter_loc(title: "The Bear", **ENGLISH)
+    sanborn = Csan.cutter_sanborn_detailed(title: "The Bear", **ENGLISH)
+    assert_equal "Bear", sanborn.fetch(:entry)
+    assert_equal "B368", sanborn.fetch(:formatted)
+    assert_equal "B437", Csan.cutter_loc_detailed(title: "The Bear", **ENGLISH).fetch(:formatted)
+  end
+
+  def test_author_names_are_never_stripped
+    assert_equal "L166f", Csan.cutter_sanborn(surname: "La Fontaine", title: "Les Fables", lang: "fr", strip_article: true)
+  end
+
+  def test_lang_without_strip_article_changes_nothing
+    ["en", "", "  ", nil].each do |lang|
+      assert_equal "D548a", Csan.cutter_sanborn(**DICKENS, lang: lang)
+    end
+  end
+
+  def test_strip_article_is_read_by_truthiness
+    # nil is off, and any other value but false is on, in every method.
+    unstripped = {cutter_sanborn: "T375", cutter_sanborn_detailed: "T375", cutter_loc: "T443", cutter_loc_detailed: "T443"}
+    stripped = {cutter_sanborn: "B368", cutter_sanborn_detailed: "B368", cutter_loc: "B437", cutter_loc_detailed: "B437"}
+    FUNCTIONS.each do |function|
+      formatted = ->(switch) { formatted_number(Csan.public_send(function, title: "The Bear", lang: "en", strip_article: switch)) }
+      assert_equal unstripped.fetch(function), formatted.call(nil)
+      [1, "yes"].each { |switch| assert_equal stripped.fetch(function), formatted.call(switch) }
+    end
+  end
+
+  def test_strip_article_requires_lang
+    FUNCTIONS.product([nil, "", "  "]).each do |function, lang|
+      error = assert_raises(ArgumentError) { Csan.public_send(function, title: "The Bear", lang: lang, strip_article: true) }
+      assert_equal "strip_article requires lang", error.message
+    end
+  end
+
+  def test_unknown_lang_is_an_error_even_with_the_switch_off
+    FUNCTIONS.product([false, true]).each do |function, strip_article|
+      error = assert_raises(ArgumentError) { Csan.public_send(function, title: "The Bear", lang: "xx", strip_article: strip_article) }
+      assert_match(/\Aunknown language "xx" \(expected one of: af, br,/, error.message)
+    end
+  end
+
+  def test_language_errors_come_before_missing_input
+    FUNCTIONS.each do |function|
+      assert_match(/\Aunknown language/, assert_raises(ArgumentError) { Csan.public_send(function, lang: "xx") }.message)
+      assert_equal "strip_article requires lang",
+        assert_raises(ArgumentError) { Csan.public_send(function, strip_article: true) }.message
+      assert_match(/\Aprovide at least one/,
+        assert_raises(ArgumentError) { Csan.public_send(function, **ENGLISH) }.message)
+    end
+  end
+
+  def test_lang_must_be_a_string
+    FUNCTIONS.product([:en, 1], [false, true]).each do |function, lang, strip_article|
+      assert_raises(TypeError) { Csan.public_send(function, title: "The Bear", lang: lang, strip_article: strip_article) }
+    end
+  end
+
+  def test_native_arities
+    # The extension takes the keywords positionally, in their order.
+    assert_equal({cutter_sanborn: 7, cutter_sanborn_detailed: 7, cutter_loc: 6, cutter_loc_detailed: 6},
+      FUNCTIONS.to_h { |function| [function, Csan::Native.method(function).arity] })
+  end
+
+  private
+
+  # The number as a string, from a method's String or detailed Hash result.
+  def formatted_number(result)
+    result.is_a?(Hash) ? result.fetch(:formatted) : result
+  end
+end
+
 class TestRunCli < Minitest::Test
   def test_success
     out, = capture_subprocess_io { assert_equal 0, Csan.run_cli(["--surname", "Dickens", "--title", "Oliver Twist"]) }
@@ -127,6 +210,12 @@ class TestRunCli < Minitest::Test
 
   def test_help_returns_zero
     capture_subprocess_io { assert_equal 0, Csan.run_cli(["--help"]) }
+  end
+
+  def test_strip_article_with_lang
+    out, = capture_subprocess_io { assert_equal 0, Csan.run_cli(["--lang", "en", "--strip-article", "--title", "The Bear"]) }
+    assert_equal "B368", out.strip
+    capture_subprocess_io { assert_equal 2, Csan.run_cli(["--strip-article", "--title", "The Bear"]) }
   end
 end
 

@@ -13,8 +13,16 @@ cutter numbers from author names or titles::
     #  'formatted': 'B732', 'numeric': 732}
 
 At least one of ``forename``/``surname``/``title`` must be
-non-blank; blank strings count as absent. Unusable input raises
-``ValueError``.
+non-blank; blank strings count as absent. With ``strip_article=True``, the
+title is filed without its initial article in the language ``lang`` names
+(``"en"``, ``"pt-BR"``, ...)::
+
+    csan.cutter_sanborn(surname="Dickens", title="A Christmas Carol",
+                        lang="en", strip_article=True)  # 'D548c'
+
+A blank ``lang`` counts as absent, and author names are never stripped.
+Unusable input, an unknown ``lang`` (even with ``strip_article`` off), or
+``strip_article`` without ``lang`` raises ``ValueError``.
 
 Installing this package also provides the ``csan`` command-line tool
 (see ``csan --help``).

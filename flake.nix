@@ -7,8 +7,8 @@
 #   nix run . -- --help  the binary, run (`nix run github:veralvx/csan -- ...`)
 #   nix develop          the shell: the toolchain (with the wasm target), just,
 #                        dprint, cog, git-cliff, cargo-audit, and the bindings'
-#                        tools (maturin, ruby with bundler and libclang,
-#                        wasm-pack, node, typst)
+#                        tools (maturin, pytest, mypy, ruby with bundler and
+#                        libclang, wasm-pack, node, typst)
 #   nix develop .#miri   nightly with Miri, for `just miri`
 #   nix fmt              nixfmt, through treefmt; `nix fmt -- --ci` formats,
 #                        and fails if that changed a file
@@ -290,11 +290,15 @@
                 pkgs.cargo-audit
                 pkgs.cargo-dist
                 pkgs.nixfmt
-                # the bindings: Python (maturin, pytest), Ruby (with bundler;
-                # libclang, through bindgenHook, for rb-sys), npm (wasm-pack,
-                # node, binaryen's wasm-opt)
+                # the bindings: Python (maturin, pytest, and mypy for the
+                # stubs' stubtest), Ruby (with bundler; libclang, through
+                # bindgenHook, for rb-sys), npm (wasm-pack, node, binaryen's
+                # wasm-opt)
                 pkgs.maturin
-                (pkgs.python3.withPackages (python: [ python.pytest ]))
+                (pkgs.python3.withPackages (python: [
+                  python.pytest
+                  python.mypy
+                ]))
                 pkgs.ruby
                 rustPlatform.bindgenHook
                 pkgs.wasm-pack

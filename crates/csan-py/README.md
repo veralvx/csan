@@ -28,7 +28,23 @@ arguments (at least one must be non-blank; blank strings count as absent).
 `cutter_sanborn*` also take `prefix_len` and `suffix_len`; `cutter_loc*`
 take `max_len` (clamped to 4). The `*_detailed` variants return a dict of
 the number's parts plus the rendered call number under `"formatted"`.
-Unusable input raises `ValueError`.
+
+Every function also takes the keyword-only `lang` and `strip_article`:
+with `strip_article=True`, the title is filed without its initial article
+in the language `lang` names (an ISO 639 code, a BCP 47 tag or a POSIX
+locale, case-insensitive; `csan --help` lists them all). `lang` alone
+changes nothing.
+
+```python
+csan.cutter_sanborn(surname="Dickens", title="A Christmas Carol",
+                    lang="en", strip_article=True)  # 'D548c'
+csan.cutter_loc(title="The Bear", lang="en", strip_article=True)  # 'B437'
+```
+
+A blank `lang` counts as absent, and author names are never stripped.
+Unusable input, an unknown `lang` (even with `strip_article` off), or
+`strip_article` without `lang` raises `ValueError`, and a `lang` that is
+not a string, or a `strip_article` that is not a bool, `TypeError`.
 
 The console script is the same interface as the standalone Rust binary:
 

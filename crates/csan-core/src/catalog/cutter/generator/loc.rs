@@ -180,6 +180,12 @@ impl CutterGenerator for CutterLocMethod {
     /// the number is not converted to its spelled form (for the sake of
     /// being language agnostic); it is entirely ignored.
     ///
+    /// An [`Attribution::OpusOnly`] entry is cuttered from its
+    /// [filing title](crate::Opus::filing_title), so a title's initial
+    /// article, when its language is set, is disregarded: _The 100 best
+    /// recipes_ in English takes the numeral rule. An author's name is never
+    /// stripped.
+    ///
     /// If the name starts with `Qa`-`Qt`, it can be assigned to the `2`-`29`
     /// range, which is also arbitrary. This function assigns a number in
     /// this range, up to `27`, leaving gaps for the possibility of
@@ -224,96 +230,107 @@ impl CutterGenerator for CutterLocMethod {
             return Err(NormalizationError::EmptyString);
         }
 
-        let raw_str = match entry {
-            Attribution::Both { author, .. } | Attribution::AuthorOnly(author) => author
-                .surname()
-                .or_else(|| author.forename())
-                .ok_or(NormalizationError::EmptyString)?,
-            Attribution::OpusOnly(opus) => opus.title(),
-        };
+        match entry {
+            Attribution::Both { author, .. } | Attribution::AuthorOnly(author) => {
+                let raw = author
+                    .surname()
+                    .or_else(|| author.forename())
+                    .ok_or(NormalizationError::EmptyString)?;
+                loc_number(raw, config.max_len)
+            }
+            Attribution::OpusOnly(opus) => {
+                opus.compute_on_filing_title(|title| loc_number(title, config.max_len))
+            }
+        }
+    }
+}
 
-        let raw_trimmed = raw_str.trim_start();
+/// The `LoC` number for `raw`, a name or a filing title, with at most
+/// `max_len` digits (`max_len > 0`, clamped as
+/// [`CutterConfig::max_len`] documents).
+fn loc_number(raw: &str, max_len: usize) -> Result<CutterLoc, NormalizationError> {
+    let raw_trimmed = raw.trim_start();
 
-        let starts_with_number = raw_trimmed
+    let starts_with_number = raw_trimmed
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_digit());
+
+    // The numeral rule's A15 span already occupies two digits.
+    let max_len = if starts_with_number {
+        max_len.clamp(2, CutterLocMethod::MAX_NUMERIC_LEN)
+    } else {
+        max_len.min(CutterLocMethod::MAX_NUMERIC_LEN)
+    };
+
+    let mut numbers: Vec<CutterNumType> = Vec::with_capacity(max_len);
+    let mut apply_initial_rule = true;
+    let first_char;
+    let working_name;
+
+    if starts_with_number {
+        // Assign the LoC A12-A19 numeral span (defaults to A15).
+        numbers.extend([1, 5]);
+        first_char = 'A';
+        apply_initial_rule = false;
+
+        match to_ascii_alphabetic(Cow::Borrowed(numeral_remainder(raw_trimmed))) {
+            Ok(rest) => working_name = capitalize_ascii(rest),
+            // A bare number carries no expansion material.
+            Err(NormalizationError::EmptyString) => return Ok(CutterLoc::new('A', 15)),
+            Err(other) => return Err(other),
+        }
+    } else {
+        working_name = capitalize_ascii(to_ascii_alphabetic(Cow::Borrowed(raw_trimmed))?);
+
+        first_char = working_name
             .chars()
             .next()
-            .is_some_and(|c| c.is_ascii_digit());
+            .ok_or(NormalizationError::EmptyString)?;
+    }
 
-        // The numeral rule's A15 span already occupies two digits.
-        let max_len = if starts_with_number {
-            config.max_len.clamp(2, Self::MAX_NUMERIC_LEN)
+    let mut name_iter = working_name.chars().peekable();
+
+    if !starts_with_number {
+        name_iter.next();
+    }
+
+    while let Some(c) = name_iter.next() {
+        if numbers.len() >= max_len {
+            break;
+        }
+
+        let (first_digit, second_digit) = if apply_initial_rule {
+            apply_initial_rule = false;
+            initial_digits(first_char, c, &mut name_iter)
         } else {
-            config.max_len.min(Self::MAX_NUMERIC_LEN)
+            (expansion_digit(c), None)
         };
 
-        let mut numbers: Vec<CutterNumType> = Vec::with_capacity(max_len);
-        let mut apply_initial_rule = true;
-        let first_char;
-        let working_name;
-
-        if starts_with_number {
-            // Assign the LoC A12-A19 numeral span (defaults to A15).
-            numbers.extend([1, 5]);
-            first_char = 'A';
-            apply_initial_rule = false;
-
-            match to_ascii_alphabetic(Cow::Borrowed(numeral_remainder(raw_trimmed))) {
-                Ok(rest) => working_name = capitalize_ascii(rest),
-                // A bare number carries no expansion material.
-                Err(NormalizationError::EmptyString) => return Ok(CutterLoc::new('A', 15)),
-                Err(other) => return Err(other),
-            }
-        } else {
-            working_name = capitalize_ascii(to_ascii_alphabetic(Cow::Borrowed(raw_trimmed))?);
-
-            first_char = working_name
-                .chars()
-                .next()
-                .ok_or(NormalizationError::EmptyString)?;
+        numbers.push(first_digit);
+        if let Some(digit) = second_digit
+            && numbers.len() < max_len
+        {
+            numbers.push(digit);
         }
-
-        let mut name_iter = working_name.chars().peekable();
-
-        if !starts_with_number {
-            name_iter.next();
-        }
-
-        while let Some(c) = name_iter.next() {
-            if numbers.len() >= max_len {
-                break;
-            }
-
-            let (first_digit, second_digit) = if apply_initial_rule {
-                apply_initial_rule = false;
-                initial_digits(first_char, c, &mut name_iter)
-            } else {
-                (expansion_digit(c), None)
-            };
-
-            numbers.push(first_digit);
-            if let Some(digit) = second_digit
-                && numbers.len() < max_len
-            {
-                numbers.push(digit);
-            }
-        }
-
-        if numbers.is_empty() {
-            numbers.push(2);
-        }
-
-        // Bounded by construction: at most MAX_NUMERIC_LEN (4) digits of at
-        // most 9 each, so the accumulator peaks at 9999 << CutterNumType::MAX.
-        let numeric = numbers.into_iter().fold(0, |acc: CutterNumType, digit| {
-            acc.saturating_mul(10).saturating_add(digit)
-        });
-
-        Ok(CutterLoc::new(first_char, numeric))
     }
+
+    if numbers.is_empty() {
+        numbers.push(2);
+    }
+
+    // Bounded by construction: at most MAX_NUMERIC_LEN (4) digits of at
+    // most 9 each, so the accumulator peaks at 9999 << CutterNumType::MAX.
+    let numeric = numbers.into_iter().fold(0, |acc: CutterNumType, digit| {
+        acc.saturating_mul(10).saturating_add(digit)
+    });
+
+    Ok(CutterLoc::new(first_char, numeric))
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::catalog::language::Language;
     use crate::catalog::models::{Opus, author::Author};
 
     use super::*;
@@ -677,6 +694,83 @@ mod tests {
     #[test]
     fn title_entry() {
         assert_eq!(gen_title("Bear", 3).unwrap(), CutterLoc::new('B', 437));
+    }
+
+    /// Generates with the default config, the title filed in `language`.
+    fn gen_filed(title: &str, language: Language) -> Result<CutterLoc, NormalizationError> {
+        let entry = Attribution::OpusOnly(Opus::new(title)).with_article_language(Some(language));
+        CutterLocMethod::generate(&entry, CutterConfig::default())
+    }
+
+    #[test]
+    fn title_entry_disregards_the_initial_article() {
+        assert_eq!(gen_title("The Bear", 3).unwrap(), CutterLoc::new('T', 443));
+        assert_eq!(
+            gen_filed("The Bear", Language::English).unwrap(),
+            CutterLoc::new('B', 437)
+        );
+        // An article followed by a numeral reaches the numeral rule, with any
+        // punctuation between them nonfiling, as MARC counts it.
+        for (title, numeric) in [
+            ("The 100 best recipes", 153),
+            ("\"The 100 best recipes\"", 153),
+            ("The 100", 15),
+            ("The #1", 15),
+            ("The (2)", 15),
+            ("The \"100\"", 15),
+        ] {
+            assert_eq!(
+                gen_filed(title, Language::English).unwrap(),
+                CutterLoc::new('A', numeric),
+                "{title}"
+            );
+        }
+        assert_eq!(
+            gen_filed("El 1 de mayo", Language::Spanish).unwrap(),
+            CutterLoc::new('A', 153)
+        );
+        // No filing character after the article: filed as written, as today.
+        assert_eq!(
+            gen_filed("The ½", Language::English).unwrap(),
+            CutterLoc::new('T', 44)
+        );
+        // Unstripped, a leading quote still blocks the numeral rule, as
+        // before stripping existed: only an article's surrounding
+        // punctuation is nonfiling.
+        assert_eq!(
+            gen_title("\"100 best recipes\"", 3).unwrap(),
+            CutterLoc::new('B', 478)
+        );
+        // Other errors propagate, quoting the filing title.
+        let error = gen_filed("The Война", Language::English);
+        assert!(matches!(error, Err(NormalizationError::NonAsciiAlpha(s)) if s == "Война"));
+    }
+
+    #[test]
+    fn author_entries_ignore_the_article_language() {
+        for (surname, title, language, want) in [
+            (
+                "La Fontaine",
+                "Les Fables",
+                Language::French,
+                CutterLoc::new('L', 346),
+            ),
+            (
+                "Dickens",
+                "A Christmas Carol",
+                Language::English,
+                CutterLoc::new('D', 535),
+            ),
+        ] {
+            let entry = Attribution::Both {
+                author: Author::surname_only(surname),
+                opus: Opus::new(title),
+            };
+            let config = CutterConfig::default();
+            assert_eq!(CutterLocMethod::generate(&entry, config).unwrap(), want);
+            let filed = entry.with_article_language(Some(language));
+            assert_eq!(CutterLocMethod::generate(&filed, config).unwrap(), want);
+        }
     }
 
     #[test]

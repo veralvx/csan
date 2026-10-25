@@ -37,8 +37,26 @@ cutterSanbornDetailed({ surname: "Borges" });
 
 Every function takes one options object with camelCase keys: `forename`,
 `surname`, `title`, plus `prefixLen`/`suffixLen` for Cutter-Sanborn and
-`maxLen` (clamped to 4) for the Library of Congress method. At least one of
+`maxLen` (clamped to 4) for the Library of Congress method, and `lang` and
+`stripArticle` (below) for both. At least one of
 the name/title inputs must be non-blank; blank strings count as absent.
+
+With `stripArticle: true`, the title is filed without its initial article in
+the language `lang` names (an ISO 639 code, a BCP 47 tag or a POSIX locale,
+case-insensitive; `npx @veralvx/csan --help` lists them all). `lang` alone
+changes nothing, a blank `lang` counts as absent, `stripArticle: null` or
+`undefined` means off, and author names are never stripped. An unknown
+`lang` (even with the switch off), or `stripArticle` without `lang`, throws.
+
+```js
+cutterSanborn({
+  surname: "Dickens",
+  title: "A Christmas Carol",
+  lang: "en",
+  stripArticle: true,
+}); // "D548c"
+cutterLoc({ title: "The Bear", lang: "en", stripArticle: true }); // "B437"
+```
 
 - Only the object's own properties are read, and unknown keys are rejected:
   a misspelled key, or `prefixLen` passed to `cutterLoc`, throws instead of
@@ -75,7 +93,7 @@ arguments (without the program name) and returns `{ code, stdout, stderr }`
 instead of printing; `styling` (`{ stdout?, stderr? }`) asks for ANSI
 styles on either stream.
 
-The package is about 210 KB gzipped, of which the command-line interface
+The package is about 235 KB gzipped, of which the command-line interface
 accounts for about 80 KB.
 
 ## Building from source

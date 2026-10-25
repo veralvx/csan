@@ -69,5 +69,123 @@
 // --- Blank author falls back to the title ----------------------------
 #assert.eq(cutter-loc(surname: "   ", title: "Bear"), "B437")
 
+// --- Initial articles (lang, strip-article) --------------------------
+// Every stripped value differs from the unstripped one, so a plugin
+// that ignores these arguments fails here.
+#assert.eq(
+  cutter-sanborn(
+    forename: "Charles",
+    surname: "Dickens",
+    title: "A Christmas Carol",
+    lang: "en",
+    strip-article: true,
+  ),
+  "D548c",
+)
+#assert.eq(
+  cutter-sanborn(title: "The Bear", lang: "EN-us", strip-article: true),
+  "B368",
+)
+#assert.eq(
+  cutter-loc(title: "The Bear", lang: "en", strip-article: true),
+  "B437",
+)
+#assert.eq(
+  cutter-loc(title: "The 100 best recipes", lang: "en", strip-article: true),
+  "A153",
+)
+
+#let stripped = cutter-sanborn(
+  title: "The Bear",
+  lang: "en",
+  strip-article: true,
+  detailed: true,
+)
+#assert.eq(stripped.entry, "Bear")
+#assert.eq(stripped.formatted, "B368")
+#assert.eq(
+  cutter-loc(
+    title: "The Bear",
+    lang: "en",
+    strip-article: true,
+    detailed: true,
+  ).formatted,
+  "B437",
+)
+
+// Author names are never stripped: only the title loses its article.
+#assert.eq(
+  cutter-sanborn(
+    forename: "Jean de",
+    surname: "La Fontaine",
+    title: "Les Fables",
+    lang: "fr",
+    strip-article: true,
+  ),
+  "L166f",
+)
+
+// A language alone, or a blank one with the switch off, changes nothing.
+#assert.eq(cutter-sanborn(title: "The Bear", lang: "en"), "T375")
+#assert.eq(
+  cutter-loc(title: "The Bear", lang: "en", strip-article: false),
+  "T443",
+)
+#assert.eq(cutter-loc(title: "The Bear", lang: "  "), "T443")
+
+// The language set once, with `.with`, and the switch per call.
+#let cutter-pt = cutter-sanborn.with(lang: "pt")
+#assert.eq(cutter-pt(surname: "Alencar", title: "O Guarani"), "A368o")
+#assert.eq(
+  cutter-pt(surname: "Alencar", title: "O Guarani", strip-article: true),
+  "A368g",
+)
+#let loc-pt = cutter-loc.with(lang: "pt", strip-article: true)
+#assert.eq(loc-pt(title: "O Guarani"), "G837")
+
+// The document's language, through `context`.
+#set text(lang: "pt")
+#context assert.eq(
+  cutter-sanborn(
+    surname: "Alencar",
+    title: "O Guarani",
+    lang: text.lang,
+    strip-article: true,
+  ),
+  "A368g",
+)
+#set text(lang: "en")
+
+// Every code the README lists is accepted ("Bear" has no article).
+#for code in (
+  "af",
+  "sq",
+  "br",
+  "ca",
+  "da",
+  "nl",
+  "en",
+  "eo",
+  "fr",
+  "gl",
+  "de",
+  "hu",
+  "is",
+  "ga",
+  "it",
+  "la",
+  "lb",
+  "mt",
+  "no",
+  "oc",
+  "pt",
+  "ro",
+  "es",
+  "sv",
+  "cy",
+) {
+  assert.eq(cutter-loc(title: "Bear", lang: code, strip-article: true), "B437")
+}
+
 = csan plugin test suite
 All assertions passed.
