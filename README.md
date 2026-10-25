@@ -170,14 +170,18 @@ The Typst package exposes two functions:
 ) // -> "D548o"
 
 #cutter-loc(surname: "Carter") // -> "C378"
+
+#cutter-loc(title: "The Bear", lang: "en", strip-article: true) // -> "B437"
 ```
 
 Both accept `forename`, `surname`, and `title` (at least one must be
 non-blank; blank strings count as absent). `cutter-sanborn` also takes
-`prefix-len` and `suffix-len`; `cutter-loc` takes `max-len`. Pass
-`detailed: true` to receive a dictionary of the parts (`alpha_prefix`,
-`numeric`, …) instead of the formatted string. Requires Typst 0.14.2 or
-later.
+`prefix-len` and `suffix-len`; `cutter-loc` takes `max-len`. Both take
+the CLI's `--lang` and `--strip-article` as `lang` and `strip-article`:
+with `strip-article: true`, the title is filed without its initial article
+in the language that `lang` names. Pass `detailed: true` to receive a
+dictionary of the parts (`alpha_prefix`, `numeric`, …) instead of the
+formatted string. Requires Typst 0.14.2 or later.
 
 Until the package is published to Typst Universe, install it as a
 [local package](https://github.com/typst/packages#local-packages): extract
