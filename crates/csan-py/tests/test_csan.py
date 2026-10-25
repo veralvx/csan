@@ -12,6 +12,7 @@ same Python interface end users call, against the built module. Run with::
 from __future__ import annotations
 
 import importlib.metadata
+import inspect
 import pathlib
 import subprocess
 import sys
@@ -141,6 +142,98 @@ def test_untransliterable_name_raises_value_error():
 
 
 # --------------------------------------------------------------------------
+# lang and strip_article (initial articles)
+# --------------------------------------------------------------------------
+ALL_FUNCS = [
+    csan.cutter_sanborn,
+    csan.cutter_sanborn_detailed,
+    csan.cutter_loc,
+    csan.cutter_loc_detailed,
+]
+ENGLISH = {"lang": "en", "strip_article": True}
+DICKENS = {"surname": "Dickens", "title": "A Christmas Carol"}
+
+
+def test_strip_article_files_the_title_without_its_article():
+    assert csan.cutter_sanborn(**DICKENS) == "D548a"
+    assert csan.cutter_sanborn(**DICKENS, **ENGLISH) == "D548c"
+    # Any accepted code works, in any case.
+    assert (
+        csan.cutter_sanborn(**DICKENS, lang="EN-us", strip_article=True)
+        == "D548c"
+    )
+    assert csan.cutter_loc(title="The Bear") == "T443"
+    assert csan.cutter_loc(title="The Bear", **ENGLISH) == "B437"
+    sanborn = csan.cutter_sanborn_detailed(title="The Bear", **ENGLISH)
+    assert sanborn["entry"] == "Bear"
+    assert sanborn["formatted"] == "B368"
+    loc = csan.cutter_loc_detailed(title="The Bear", **ENGLISH)
+    assert loc["formatted"] == "B437"
+
+
+def test_author_names_are_never_stripped():
+    fables = {"surname": "La Fontaine", "title": "Les Fables"}
+    assert csan.cutter_sanborn(**fables, lang="fr", strip_article=True) == (
+        "L166f"
+    )
+
+
+@pytest.mark.parametrize("lang", ["en", "", "  ", None])
+def test_lang_without_strip_article_changes_nothing(lang):
+    assert csan.cutter_sanborn(**DICKENS, lang=lang) == "D548a"
+
+
+@pytest.mark.parametrize("func", ALL_FUNCS)
+@pytest.mark.parametrize("lang", [None, "", "  "])
+def test_strip_article_requires_lang(func, lang):
+    with pytest.raises(ValueError, match="^strip_article requires lang$"):
+        func(title="The Bear", lang=lang, strip_article=True)
+
+
+@pytest.mark.parametrize("func", ALL_FUNCS)
+@pytest.mark.parametrize("strip_article", [False, True])
+def test_unknown_lang_raises_value_error(func, strip_article):
+    # A bad code is an error even with the switch off.
+    expected = r'^unknown language "xx" \(expected one of: af, br,'
+    with pytest.raises(ValueError, match=expected):
+        func(title="The Bear", lang="xx", strip_article=strip_article)
+
+
+@pytest.mark.parametrize(
+    ("func", "positional"),
+    [
+        (csan.cutter_sanborn, 5),
+        (csan.cutter_sanborn_detailed, 5),
+        (csan.cutter_loc, 4),
+        (csan.cutter_loc_detailed, 4),
+    ],
+)
+def test_lang_and_strip_article_are_keyword_only(func, positional):
+    parameters = inspect.signature(func).parameters
+    for name in ("lang", "strip_article"):
+        assert parameters[name].kind is inspect.Parameter.KEYWORD_ONLY
+    # The existing inputs stay positional: (forename, surname, title,
+    # prefix_len, suffix_len), or (forename, surname, title, max_len).
+    kinds = [p.kind for p in parameters.values()]
+    assert kinds.count(inspect.Parameter.POSITIONAL_OR_KEYWORD) == positional
+    # One positional argument past them is rejected for its count, even
+    # when it would be a valid `lang`.
+    inputs = [None, "Dickens", "The Bear"] + [None] * (positional - 3)
+    with pytest.raises(TypeError, match="positional argument"):
+        func(*inputs, "en")
+
+
+@pytest.mark.parametrize("func", ALL_FUNCS)
+def test_language_errors_come_before_missing_input(func):
+    with pytest.raises(ValueError, match="^unknown language"):
+        func(lang="xx")
+    with pytest.raises(ValueError, match="^strip_article requires lang$"):
+        func(strip_article=True)
+    with pytest.raises(ValueError, match="^provide at least one"):
+        func(lang="en", strip_article=True)
+
+
+# --------------------------------------------------------------------------
 # run_cli (the console-script engine)
 # --------------------------------------------------------------------------
 def test_run_cli_success_returns_zero(capfd):
@@ -180,6 +273,13 @@ def test_run_cli_usage_error_returns_two(args):
 
 def test_run_cli_help_returns_zero():
     assert csan.run_cli(["--help"]) == 0
+
+
+def test_run_cli_strips_with_lang(capfd):
+    args = ["--lang", "en", "--strip-article", "--title", "The Bear"]
+    assert csan.run_cli(args) == 0
+    assert capfd.readouterr().out.strip() == "B368"
+    assert csan.run_cli(["--strip-article", "--title", "The Bear"]) == 2
 
 
 # --------------------------------------------------------------------------
