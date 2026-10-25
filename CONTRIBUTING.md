@@ -26,8 +26,9 @@ To build and test locally, you will need the following tools:
   tools [`crates/csan-typst/tools.toml`](crates/csan-typst/tools.toml)
   pins, at those versions: typst, tytanic (`tt`), typstyle, tinymist,
   typst-package-check, just, shellcheck, shfmt and actionlint, plus jq.
-- **Optional, for the bindings:** `maturin` for the Python package
-  (`crates/csan-py`) and `wasm-pack` plus Node for the npm package
+- **Optional, for the bindings:** `maturin`, `pytest` and `mypy` (its
+  stubtest checks the type stubs) for the Python package (`crates/csan-py`)
+  and `wasm-pack` plus Node for the npm package
   (`crates/csan-web`). The gem (`crates/csan-rb`) needs only Ruby and
   Bundler, above; its cross-compiled platform gems are built in CI.
 

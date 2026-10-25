@@ -150,11 +150,12 @@ npm-pack out=DIST_EXTRA_DIR: npm-test
 web-test:
   wasm-pack test --node {{ WEB_CRATE_DIR }}
 
-[doc("Build the Python module into the active venv and run its pytest suite (requires maturin and pytest)")]
+[doc("Build the Python module into the active venv, run its pytest suite and check its type stubs (requires maturin, pytest and mypy)")]
 [group("Bindings")]
 py-test:
   maturin develop -m crates/csan-py/Cargo.toml
-  pytest crates/csan-py/tests
+  python -m pytest crates/csan-py/tests
+  python -m mypy.stubtest csan._csan
 
 [doc("Compile the Ruby gem's extension and run its test suite (requires Ruby with bundler, and libclang)")]
 [group("Bindings")]

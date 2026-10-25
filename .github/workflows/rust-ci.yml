@@ -243,7 +243,7 @@ jobs:
         run: just typst::versions-check typst::readme-check typst::examples-check typst::floor
 
   python-package:
-    name: Python package (wheel build + pytest)
+    name: Python package (wheel build + pytest + stubtest)
     runs-on: ubuntu-latest
     env:
       RUSTUP_TOOLCHAIN: stable
@@ -265,13 +265,18 @@ jobs:
 
       - name: Build and install the wheel
         run: |
-          python -m pip install --upgrade pip maturin pytest
+          python -m pip install --upgrade pip maturin pytest mypy
           maturin build --release --locked -m crates/csan-py/Cargo.toml \
             --compatibility linux -o dist
           python -m pip install dist/*.whl
 
       - name: Run the Python test suite
         run: pytest crates/csan-py/tests
+
+      # The stubs (_csan.pyi) against the compiled module: its members, and
+      # each function's parameters, kinds and defaults.
+      - name: Check the type stubs
+        run: python -m mypy.stubtest csan._csan
 
   ruby-gem:
     name: Ruby gem (compile + minitest, Ruby ${{ matrix.ruby }})
