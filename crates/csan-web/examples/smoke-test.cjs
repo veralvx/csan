@@ -57,6 +57,35 @@ assert.throws(
   (e) => e.message.startsWith("invalid type"),
 );
 
+// Initial articles: `stripArticle` files the title without its article in
+// the language `lang` names; `lang` alone, or a null/undefined switch, is off.
+const carol = { surname: "Dickens", title: "A Christmas Carol" };
+assert.equal(cutterSanborn({ ...carol, lang: "en", stripArticle: true }), "D548c");
+assert.equal(cutterSanborn({ ...carol, lang: "en" }), "D548a");
+assert.equal(cutterSanborn({ ...carol, lang: "en", stripArticle: null }), "D548a");
+assert.equal(cutterSanborn({ ...carol, lang: "en", stripArticle: undefined }), "D548a");
+assert.equal(cutterLoc({ title: "The Bear", lang: "en", stripArticle: true }), "B437");
+assert.equal(
+  cutterSanbornDetailed({ title: "The Bear", lang: "en", stripArticle: true }).entry,
+  "Bear",
+);
+assert.throws(
+  () => cutterLoc({ title: "The Bear", stripArticle: true }),
+  /^Error: stripArticle requires lang$/,
+);
+assert.throws(
+  () => cutterSanborn({ title: "The Bear", lang: "xx" }),
+  /^Error: unknown language "xx" \(expected one of: af, br,/,
+);
+assert.throws(
+  () => cutterLoc({ title: "The Bear", lang: "en", stripArticle: "yes" }),
+  (e) => e.message.startsWith("invalid type"),
+);
+assert.throws(
+  () => cutterSanborn({ title: "The Bear", lang: 1 }),
+  (e) => e.message.startsWith("invalid type"),
+);
+
 // runCli: the native CLI's interface, with the output captured.
 assert.deepEqual(runCli(["--surname", "Dickens", "--title", "Oliver Twist"]), {
   code: 0,

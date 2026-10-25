@@ -21,9 +21,12 @@
 //! ```
 //!
 //! At least one of `forename`/`surname`/`title` must be non-blank;
-//! blank strings count as absent. Unknown option keys are rejected rather
-//! than ignored, so a misspelled key cannot silently change the result.
-//! Errors are thrown as JavaScript `Error`s.
+//! blank strings count as absent. With `stripArticle: true`, the title is
+//! filed without its initial article in the language `lang` names
+//! (`cutterSanborn({ surname: "Dickens", title: "A Christmas Carol", lang:
+//! "en", stripArticle: true })` gives `"D548c"`). Unknown option keys are
+//! rejected rather than ignored, so a misspelled key cannot silently change
+//! the result. Errors are thrown as JavaScript `Error`s.
 //!
 //! The `*Detailed` variants return plain objects with the number's parts
 //! plus the rendered call number under `formatted`. The option structs and
@@ -32,7 +35,7 @@
 
 use csan_core::{
     Attribution, CutterConfig, CutterGenerator, CutterLoc, CutterLocMethod, CutterSanborn,
-    CutterSanbornMethod, Detailed,
+    CutterSanbornMethod, Detailed, Language, MissingLanguage,
 };
 use serde::de::value::MapAccessDeserializer;
 use serde::de::{Deserializer, MapAccess, Visitor};
@@ -59,6 +62,14 @@ export interface SanbornOptions {
   prefixLen?: number | null;
   /** Letters taken from the title for the work mark (default 1). */
   suffixLen?: number | null;
+  /** The work's language, for `stripArticle`: an ISO 639 code, a BCP 47
+   *  tag or a POSIX locale ("en", "pt-BR"), case-insensitive. Alone, a
+   *  valid code changes nothing and an unknown one throws; blank counts as
+   *  absent. */
+  lang?: string | null;
+  /** File the title without its initial article in `lang` (default false).
+   *  Author names are never stripped. */
+  stripArticle?: boolean | null;
 }
 
 /** Options for `cutterLoc` and `cutterLocDetailed`. */
@@ -71,6 +82,14 @@ export interface LocOptions {
   title?: string | null;
   /** Digits in the number, clamped to 4 (default 3). */
   maxLen?: number | null;
+  /** The work's language, for `stripArticle`: an ISO 639 code, a BCP 47
+   *  tag or a POSIX locale ("en", "pt-BR"), case-insensitive. Alone, a
+   *  valid code changes nothing and an unknown one throws; blank counts as
+   *  absent. */
+  lang?: string | null;
+  /** File the title without its initial article in `lang` (default false).
+   *  Author names are never stripped. */
+  stripArticle?: boolean | null;
 }
 
 /** The parts of a Cutter-Sanborn number. */
@@ -143,6 +162,11 @@ pub struct SanbornOptions {
     pub prefix_len: Option<usize>,
     /// Letters taken from the title for the work mark (default 1).
     pub suffix_len: Option<usize>,
+    /// The work's language, for `strip_article`; blank counts as absent.
+    pub lang: Option<String>,
+    /// File the title without its initial article in `lang` (`None`, the
+    /// default, is off).
+    pub strip_article: Option<bool>,
 }
 
 /// Options accepted by [`cutter_loc`] and [`cutter_loc_detailed`].
@@ -157,29 +181,55 @@ pub struct LocOptions {
     pub title: Option<String>,
     /// Digits in the number, clamped to 4 by the library (default 3).
     pub max_len: Option<usize>,
+    /// The work's language, for `strip_article`; blank counts as absent.
+    pub lang: Option<String>,
+    /// File the title without its initial article in `lang` (`None`, the
+    /// default, is off).
+    pub strip_article: Option<bool>,
 }
 
-/// Builds the [`Attribution`] for a set of optional inputs, with a
-/// JS-friendly error message.
+/// The language the title is filed in, from the `lang` and
+/// `stripArticle` options: `None` when the switch is off or absent.
+///
+/// `lang` is parsed even with the switch off, so a bad code is always an
+/// error; a blank `lang` counts as absent. The `*_impl` functions call it
+/// before checking their inputs, so a language error comes first, as in
+/// the CLI.
+fn article_language(
+    lang: Option<&str>,
+    strip_article: Option<bool>,
+) -> Result<Option<Language>, String> {
+    let language = Language::from_optional(lang).map_err(|e| e.to_string())?;
+    Language::for_rule(language, strip_article.unwrap_or(false))
+        .map_err(|MissingLanguage| String::from("stripArticle requires lang"))
+}
+
+/// Builds the [`Attribution`] for a set of optional inputs, with its title
+/// filed in `article_language`, and a JS-friendly error message.
 fn attribution(
     forename: Option<&str>,
     surname: Option<&str>,
     title: Option<&str>,
+    article_language: Option<Language>,
 ) -> Result<Attribution, String> {
-    Attribution::from_parts(forename, surname, title).ok_or_else(|| {
+    let entry = Attribution::from_parts(forename, surname, title).ok_or_else(|| {
         String::from("provide at least one non-blank input: forename, surname, or title")
-    })
+    })?;
+    Ok(entry.with_article_language(article_language))
 }
 
 /// Host-testable core of [`cutter_sanborn`] / [`cutter_sanborn_detailed`].
 ///
 /// # Errors
-/// Returns a message when no usable input was provided or generation fails.
+/// Returns a message when `lang` is unknown, `strip_article` is set without
+/// `lang`, no usable input was provided, or generation fails.
 pub fn sanborn_impl(options: &SanbornOptions) -> Result<CutterSanborn, String> {
+    let language = article_language(options.lang.as_deref(), options.strip_article)?;
     let entry = attribution(
         options.forename.as_deref(),
         options.surname.as_deref(),
         options.title.as_deref(),
+        language,
     )?;
     let config = CutterConfig::from_overrides(options.prefix_len, options.suffix_len, None);
     CutterSanbornMethod::generate(&entry, config).map_err(|e| e.to_string())
@@ -188,12 +238,15 @@ pub fn sanborn_impl(options: &SanbornOptions) -> Result<CutterSanborn, String> {
 /// Host-testable core of [`cutter_loc`] / [`cutter_loc_detailed`].
 ///
 /// # Errors
-/// Returns a message when no usable input was provided or generation fails.
+/// Returns a message when `lang` is unknown, `strip_article` is set without
+/// `lang`, no usable input was provided, or generation fails.
 pub fn loc_impl(options: &LocOptions) -> Result<CutterLoc, String> {
+    let language = article_language(options.lang.as_deref(), options.strip_article)?;
     let entry = attribution(
         options.forename.as_deref(),
         options.surname.as_deref(),
         options.title.as_deref(),
+        language,
     )?;
     let config = CutterConfig::from_overrides(None, None, options.max_len);
     CutterLocMethod::generate(&entry, config).map_err(|e| e.to_string())
@@ -273,8 +326,9 @@ fn to_js(value: &impl Serialize) -> Result<JsValue, JsError> {
 /// Returns the Cutter-Sanborn call number as a string (e.g. `"D548o"`).
 ///
 /// # Errors
-/// Throws when the options are malformed, no usable input was provided, or
-/// generation fails.
+/// Throws when the options are malformed, `lang` is unknown, `stripArticle`
+/// is set without `lang`, no usable input was provided, or generation
+/// fails.
 #[wasm_bindgen(js_name = "cutterSanborn")]
 pub fn cutter_sanborn(options: Option<SanbornOptionsArg>) -> Result<String, JsError> {
     let parsed: SanbornOptions = parse_options(options)?;
@@ -287,8 +341,9 @@ pub fn cutter_sanborn(options: Option<SanbornOptionsArg>) -> Result<String, JsEr
 /// (`{ alpha_prefix, numeric, alpha_suffix, entry, formatted }`).
 ///
 /// # Errors
-/// Throws when the options are malformed, no usable input was provided, or
-/// generation fails.
+/// Throws when the options are malformed, `lang` is unknown, `stripArticle`
+/// is set without `lang`, no usable input was provided, or generation
+/// fails.
 #[wasm_bindgen(
     js_name = "cutterSanbornDetailed",
     unchecked_return_type = "CutterSanbornDetailed"
@@ -303,8 +358,9 @@ pub fn cutter_sanborn_detailed(options: Option<SanbornOptionsArg>) -> Result<JsV
 /// (e.g. `"C378"`).
 ///
 /// # Errors
-/// Throws when the options are malformed, no usable input was provided, or
-/// generation fails.
+/// Throws when the options are malformed, `lang` is unknown, `stripArticle`
+/// is set without `lang`, no usable input was provided, or generation
+/// fails.
 #[wasm_bindgen(js_name = "cutterLoc")]
 pub fn cutter_loc(options: Option<LocOptionsArg>) -> Result<String, JsError> {
     let parsed: LocOptions = parse_options(options)?;
@@ -317,8 +373,9 @@ pub fn cutter_loc(options: Option<LocOptionsArg>) -> Result<String, JsError> {
 /// (`{ alpha_prefix, numeric, formatted }`).
 ///
 /// # Errors
-/// Throws when the options are malformed, no usable input was provided, or
-/// generation fails.
+/// Throws when the options are malformed, `lang` is unknown, `stripArticle`
+/// is set without `lang`, no usable input was provided, or generation
+/// fails.
 #[wasm_bindgen(
     js_name = "cutterLocDetailed",
     unchecked_return_type = "CutterLocDetailed"
@@ -424,6 +481,7 @@ mod tests {
                 title: Some("Oliver Twist".to_owned()),
                 prefix_len: Some(2),
                 suffix_len: Some(3),
+                ..Default::default()
             };
             assert_eq!(sanborn_impl(&options).unwrap().to_string(), "Di548oli");
         }
@@ -535,6 +593,99 @@ mod tests {
             assert!(styled.stderr.contains('\u{1b}'), "styled on request");
         }
 
+        /// Cutter-Sanborn options for `title`, filed by `lang`/`strip_article`.
+        fn sanborn_options(
+            surname: Option<&str>,
+            title: Option<&str>,
+            lang: Option<&str>,
+            strip_article: Option<bool>,
+        ) -> SanbornOptions {
+            SanbornOptions {
+                surname: surname.map(str::to_owned),
+                title: title.map(str::to_owned),
+                lang: lang.map(str::to_owned),
+                strip_article,
+                ..Default::default()
+            }
+        }
+
+        #[test]
+        fn strip_article_files_the_title_without_its_article() {
+            let carol = |lang, strip| {
+                sanborn_impl(&sanborn_options(
+                    Some("Dickens"),
+                    Some("A Christmas Carol"),
+                    lang,
+                    strip,
+                ))
+                .map(|c| c.to_string())
+            };
+            assert_eq!(carol(None, None).unwrap(), "D548a");
+            assert_eq!(carol(Some("en"), Some(true)).unwrap(), "D548c");
+            assert_eq!(carol(Some("EN-us"), Some(true)).unwrap(), "D548c");
+            // `lang` alone, or with the switch off, changes nothing.
+            for lang in [Some("en"), Some(""), Some("  "), None] {
+                assert_eq!(carol(lang, None).unwrap(), "D548a");
+                assert_eq!(carol(lang, Some(false)).unwrap(), "D548a");
+            }
+
+            let bear = LocOptions {
+                title: Some("The Bear".to_owned()),
+                lang: Some("en".to_owned()),
+                strip_article: Some(true),
+                ..Default::default()
+            };
+            assert_eq!(loc_impl(&bear).unwrap().to_string(), "B437");
+
+            // Author names are never stripped.
+            let fables = sanborn_options(
+                Some("La Fontaine"),
+                Some("Les Fables"),
+                Some("fr"),
+                Some(true),
+            );
+            assert_eq!(sanborn_impl(&fables).unwrap().to_string(), "L166f");
+        }
+
+        #[test]
+        fn language_errors_come_first() {
+            let bear = Some("The Bear");
+            for lang in [None, Some(""), Some("  ")] {
+                let err = sanborn_impl(&sanborn_options(None, bear, lang, Some(true)));
+                assert_eq!(err.unwrap_err(), "stripArticle requires lang");
+            }
+            // A bad code is an error even with the switch off.
+            for strip in [None, Some(false), Some(true)] {
+                let err = sanborn_impl(&sanborn_options(None, bear, Some("xx"), strip));
+                assert!(
+                    err.unwrap_err()
+                        .starts_with("unknown language \"xx\" (expected one of: af, br,")
+                );
+                let loc = LocOptions {
+                    title: Some("The Bear".to_owned()),
+                    lang: Some("xx".to_owned()),
+                    strip_article: strip,
+                    ..Default::default()
+                };
+                assert!(loc_impl(&loc).unwrap_err().starts_with("unknown language"));
+            }
+            // Before the missing-input error.
+            let no_input = |lang: Option<&str>, strip| {
+                sanborn_impl(&sanborn_options(None, None, lang, strip)).unwrap_err()
+            };
+            assert!(no_input(Some("xx"), None).starts_with("unknown language"));
+            assert_eq!(no_input(None, Some(true)), "stripArticle requires lang");
+            assert!(no_input(Some("en"), Some(true)).starts_with("provide at least one"));
+            let loc_no_input = LocOptions {
+                strip_article: Some(true),
+                ..Default::default()
+            };
+            assert_eq!(
+                loc_impl(&loc_no_input).unwrap_err(),
+                "stripArticle requires lang"
+            );
+        }
+
         #[test]
         fn title_only_uses_the_numeral_rule() {
             let options = LocOptions {
@@ -572,6 +723,10 @@ mod tests {
             suffix_len: Option<usize>,
             #[serde(skip_serializing_if = "Option::is_none")]
             max_len: Option<usize>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            lang: Option<&'static str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            strip_article: Option<bool>,
         }
 
         /// Passes any JS value where an export takes an imported options type.
@@ -705,6 +860,67 @@ mod tests {
             let bad = js_sys::Object::new();
             js_sys::Reflect::set(&bad, &"colour".into(), &true.into()).unwrap();
             assert!(run_cli(vec![], pass(&bad)).is_err());
+        }
+
+        #[wasm_bindgen_test]
+        fn strip_article_files_the_title_without_its_article() {
+            let bear = Options {
+                title: Some("The Bear"),
+                lang: Some("en"),
+                strip_article: Some(true),
+                ..Default::default()
+            };
+            assert_eq!(cutter_sanborn(pass(&opts(&bear))).unwrap(), "B368");
+            assert_eq!(cutter_loc(pass(&opts(&bear))).unwrap(), "B437");
+            let parts = cutter_sanborn_detailed(pass(&opts(&bear))).unwrap();
+            assert_eq!(field_str(&parts, "entry").as_deref(), Some("Bear"));
+            let loc_parts = cutter_loc_detailed(pass(&opts(&bear))).unwrap();
+            assert_eq!(field_str(&loc_parts, "formatted").as_deref(), Some("B437"));
+        }
+
+        #[wasm_bindgen_test]
+        fn strip_article_null_or_undefined_is_off() {
+            // `{ stripArticle: null }` and `{ stripArticle: undefined }`, as
+            // spreading props passes them, mean off.
+            for absent in [JsValue::NULL, JsValue::UNDEFINED] {
+                let arg = js_sys::Object::new();
+                js_sys::Reflect::set(&arg, &"title".into(), &"The Bear".into()).unwrap();
+                js_sys::Reflect::set(&arg, &"lang".into(), &"en".into()).unwrap();
+                js_sys::Reflect::set(&arg, &"stripArticle".into(), &absent).unwrap();
+                assert_eq!(cutter_sanborn(pass(&arg)).unwrap(), "T375");
+                assert_eq!(cutter_loc(pass(&arg)).unwrap(), "T443");
+            }
+        }
+
+        #[wasm_bindgen_test]
+        fn lang_and_strip_article_types_are_checked() {
+            let with = |key: &str, value: &JsValue| {
+                let arg = js_sys::Object::new();
+                js_sys::Reflect::set(&arg, &"title".into(), &"The Bear".into()).unwrap();
+                js_sys::Reflect::set(&arg, &"lang".into(), &"en".into()).unwrap();
+                js_sys::Reflect::set(&arg, &key.into(), value).unwrap();
+                arg
+            };
+            assert!(cutter_sanborn(pass(&with("stripArticle", &JsValue::from_f64(1.0)))).is_err());
+            assert!(cutter_loc(pass(&with("stripArticle", &"yes".into()))).is_err());
+            // A number is a type error, not a code ("5" would be an unknown
+            // language instead).
+            let error: JsValue = cutter_loc(pass(&with("lang", &JsValue::from_f64(5.0))))
+                .unwrap_err()
+                .into();
+            let message = js_sys::Reflect::get(&error, &"message".into()).unwrap();
+            assert!(message.as_string().unwrap().starts_with("invalid type"));
+        }
+
+        #[wasm_bindgen_test]
+        fn strip_article_without_lang_throws() {
+            let arg = opts(&Options {
+                title: Some("The Bear"),
+                strip_article: Some(true),
+                ..Default::default()
+            });
+            assert!(cutter_sanborn(pass(&arg)).is_err());
+            assert!(cutter_loc_detailed(pass(&arg)).is_err());
         }
 
         #[wasm_bindgen_test]
