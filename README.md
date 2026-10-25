@@ -50,6 +50,7 @@ csan --surname Dickens --title "Oliver Twist"            # D548o
 csan --method cutter-loc --surname Carter                # C378
 csan --method cutter-loc --title "100 best recipes"      # A153
 csan --surname Borges --json                             # {"cutter_sanborn": {"formatted": "B732", ...}}
+csan --lang en --strip-article --title "The Bear"        # B368 (T375 without)
 ```
 
 `--method` selects the method, `cutter-sanborn` (the default) or
@@ -57,7 +58,9 @@ csan --surname Borges --json                             # {"cutter_sanborn": {"
 `--title`) is required. `--prefix-len`/`--suffix-len` tune the
 Cutter-Sanborn output, `--max-len` the LoC digits, and `--json` emits the
 parts as a JSON object keyed by method (`cutter_sanborn` or
-`cutter_loc`). Errors exit non-zero with a message on stderr.
+`cutter_loc`). `--strip-article` disregards the title's initial article in
+the language that `--lang` names (`en`, `pt-BR`, …; `csan --help` lists
+them all). Errors exit non-zero with a message on stderr.
 
 With [Nix](https://nixos.org), the flake builds the binary with the
 toolchain that `rust-toolchain.toml` pins:
