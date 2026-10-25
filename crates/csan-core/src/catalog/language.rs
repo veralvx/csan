@@ -14,7 +14,10 @@
 //! "ignore initial articles in the nominative case". So _A Christmas Carol_
 //! files under _Christmas_. [`Language::strip_initial_article`] removes the
 //! article, and the table in [`Language`]'s documentation lists each
-//! language's articles.
+//! language's articles. A title is filed without it through
+//! [`Opus::with_article_language`](crate::Opus::with_article_language) (or the
+//! same method on [`Attribution`](crate::Attribution)). Author names are
+//! never stripped.
 //!
 //! A word that is an article in one language is an ordinary word in another
 //! (English _Die Hard_), which is why the rule is keyed by the title's
