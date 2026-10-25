@@ -43,7 +43,8 @@ language `lang` names (an ISO 639 code, a BCP 47 tag or a POSIX locale,
 case-insensitive; `csan --help` lists them all). `lang` alone changes
 nothing, a blank `lang` counts as absent, and author names are never
 stripped. An unknown `lang` (even with `strip_article` off), or
-`strip_article` without `lang`, raises `ArgumentError`.
+`strip_article` without `lang`, raises `ArgumentError`, and a `lang` that
+is not a String `TypeError`.
 
 ```ruby
 Csan.cutter_sanborn(surname: "Dickens", title: "A Christmas Carol", lang: "en", strip_article: true)

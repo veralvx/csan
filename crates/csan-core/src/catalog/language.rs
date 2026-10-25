@@ -23,10 +23,28 @@
 //! (English _Die Hard_), which is why the rule is keyed by the title's
 //! language.
 //!
-//! The lists follow MARC 21 Appendix F, keeping only nominative forms (G 100
-//! §9). Numerals that are also articles are kept, because G 100 makes "no
+//! The lists start from MARC 21 Appendix F's forms, nominative only (G 100
+//! §9), and depart from it where the sources do:
+//! - added: Breton (the list the JSC approved for RDA in 2006),
+//!   Luxembourgish (its grammar's nominative forms, as the official
+//!   orthography spells them), and standard forms that fill a gap in a
+//!   paradigm Appendix F otherwise gives (Galician _os_ beside _as_, _un_
+//!   beside _unha_; Provençal _lei_, _leis_; the assimilated Maltese forms;
+//!   Irish without the hyphen);
+//! - left out: forms G 100 or the grammars show aren't initial articles
+//!   (Catalan's personal _en_, Romanian's genitival _a_, _al_, and
+//!   Albanian's _njē_, as G 100 §9 lists Albanian as having no initial
+//!   articles), forms with no grammatical basis (Icelandic _'r_, Provençal
+//!   _ih'_), and archaic or dialect forms that are mostly other words
+//!   (English _ye_, _d'_, _de_; German _'s_, usually the pronoun _es_).
+//!
+//! Appendix F gives no plural indefinite for Spanish, Portuguese, Catalan,
+//! Galician or French (no _des_), only for Occitan (_uns_, _us_). That
+//! omission is taken as deliberate, so _unos_, _unas_, _uns_, _umas_, _unes_
+//! and _unhas_ aren't added, while Occitan's stay. Numerals that are also
+//! articles stay in the lists, so they are stripped, because G 100 makes "no
 //! attempt … to differentiate cardinal numbers from articles". Albanian and
-//! Latin, which G 100 lists as having no initial articles, have none.
+//! Latin, which G 100 §9 lists as having no initial articles, have none.
 //!
 //! Known false positives, which are the reason stripping is opt-in:
 //! - a letter used as a word (_A to Z drug facts_);
@@ -38,8 +56,13 @@
 //!
 //! Known false negatives:
 //! - all-caps Irish mutation prefixes;
-//! - the German and Icelandic oblique-case articles, deliberately, per
-//!   G 100's nominative rule (_Dem Andenken…_ files under _Dem_).
+//! - the oblique-case articles (German, Icelandic, Luxembourgish, Romanian),
+//!   deliberately, per G 100's nominative rule (_Dem Andenken…_ files under
+//!   _Dem_), and the plural indefinites above;
+//! - articles written in other Unicode forms: decomposed (NFD) or
+//!   compatibility forms such as fullwidth letters are not folded;
+//! - an invisible format character (U+200B, U+00AD, U+FEFF) between an
+//!   article and its space.
 
 mod articles;
 
@@ -189,19 +212,23 @@ impl Language {
     /// subslice of `title`, so nothing is allocated.
     ///
     /// The article may follow anything but a letter or ASCII digit: spaces,
-    /// punctuation, symbols (`"¿El otoño?"`, `"'t Hooft"` in quotes). The
-    /// result starts at the first letter or ASCII digit after it, since MARC
-    /// counts the spaces and punctuation around an initial article as
-    /// nonfiling too. Letters match regardless of case but with their
-    /// diacritics, an apostrophe matches its typographic variants, and a
-    /// hyphen its Unicode forms. Irish also loses the `t`/`h` mutation prefix
-    /// after its article. Only one article is removed.
+    /// punctuation, symbols (`"¿El otoño?"`, `"'t Hooft"` in quotes). A word
+    /// article must then be followed by whitespace (`"The, Bear"` keeps its
+    /// _The_), an elided one by anything (`"L'amour"`, `"L' amour"`), and a
+    /// joined one by a non-space (`"il-Kantilena"`). The result starts at the
+    /// first letter or ASCII digit after it, since MARC counts the spaces and
+    /// punctuation around an initial article as nonfiling too. Letters match
+    /// regardless of case but with their diacritics, an apostrophe matches its
+    /// typographic variants, and a hyphen its Unicode forms. Irish also loses
+    /// the `t`/`h` mutation prefix after its article. Only one article is
+    /// removed.
     ///
-    /// Two limits follow from these rules. A digit other than an ASCII one
+    /// Three limits follow from these rules. A digit other than an ASCII one
     /// doesn't end the leading run, so `"１ The Bear"` (a fullwidth one)
-    /// loses its _The_. And an invisible format character between an article
-    /// and its space, such as U+200B, hides the article, so nothing is
-    /// stripped.
+    /// loses its _The_. An invisible format character between an article and
+    /// its space (U+200B, U+00AD, U+FEFF) hides the article, so nothing is
+    /// stripped. And an article in another Unicode form (decomposed, or
+    /// fullwidth `"Ｔｈｅ"`) doesn't match: there is no normalization.
     ///
     /// # Examples
     /// ```
@@ -394,8 +421,9 @@ mod tests {
 
     #[test]
     fn article_lists_are_pinned() {
-        // D7: each list is part of the stability contract, so a change to
-        // one must also change this test.
+        // Each list is part of the stability contract (a change in what is
+        // stripped changes callers' numbers), so a change to one must also
+        // change this test.
         let pinned: &[(Language, &str)] = &[
             (L::Afrikaans, "die 'n"),
             (L::Albanian, ""),
@@ -435,7 +463,7 @@ mod tests {
 
     #[test]
     fn names_and_codes_are_pinned() {
-        // D7: removing a code breaks callers that pass it, so the accepted
+        // Removing a code breaks callers that pass it, so the accepted
         // codes are pinned like the articles, and so are the names that make
         // Valencian, Flemish, Moldavian and Provençal findable in help text.
         let pinned: &[(Language, &str, &str)] = &[
@@ -475,8 +503,8 @@ mod tests {
 
     #[test]
     fn excluded_forms_are_not_listed() {
-        // The forms §4 of the plan leaves out on purpose, each for a cited
-        // reason; none may reappear unnoticed.
+        // The forms left out on purpose, for the reasons the module doc
+        // gives; none may reappear unnoticed.
         let excluded: &[(Language, &[&str])] = &[
             (L::English, &["ye", "d'", "de"]),
             (L::Catalan, &["en", "uns", "unes"]),
@@ -658,7 +686,7 @@ mod tests {
 
     #[test]
     fn only_languages_without_articles_have_none() {
-        // D8: every language carries reviewed article data. An empty list is
+        // Every language carries reviewed article data. An empty list is
         // allowed only for the languages G 100 §9 lists as having no initial
         // articles, so that a language added for another rule can't silently
         // strip nothing.

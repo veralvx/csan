@@ -41,8 +41,10 @@ csan.cutter_sanborn(surname="Dickens", title="A Christmas Carol",
 csan.cutter_loc(title="The Bear", lang="en", strip_article=True)  # 'B437'
 ```
 
-Unusable input, an unknown `lang`, or `strip_article` without `lang`
-raises `ValueError`.
+A blank `lang` counts as absent, and author names are never stripped.
+Unusable input, an unknown `lang` (even with `strip_article` off), or
+`strip_article` without `lang` raises `ValueError`, and a `lang` that is
+not a string, or a `strip_article` that is not a bool, `TypeError`.
 
 The console script is the same interface as the standalone Rust binary:
 

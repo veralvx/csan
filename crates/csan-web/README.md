@@ -37,7 +37,8 @@ cutterSanbornDetailed({ surname: "Borges" });
 
 Every function takes one options object with camelCase keys: `forename`,
 `surname`, `title`, plus `prefixLen`/`suffixLen` for Cutter-Sanborn and
-`maxLen` (clamped to 4) for the Library of Congress method. At least one of
+`maxLen` (clamped to 4) for the Library of Congress method, and `lang` and
+`stripArticle` (below) for both. At least one of
 the name/title inputs must be non-blank; blank strings count as absent.
 
 With `stripArticle: true`, the title is filed without its initial article in

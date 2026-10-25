@@ -60,7 +60,13 @@ by five thin frontends: `crates/csan` (the `csan` binary),
 `crates/csan-rb` (Ruby bindings, the crate in `ext/csan/`), and
 `crates/csan-web` (JavaScript/npm bindings). Frontends stay thin: shared
 input handling belongs in the library (`Attribution::from_parts`,
-`CutterConfig::from_overrides`), not duplicated per binding. Lint policy
+`CutterConfig::from_overrides`, `Language::from_optional`,
+`Language::for_rule`), not duplicated per binding. The languages and their
+articles live in one table, the `languages!` macro in
+`crates/csan-core/src/catalog/language.rs`, from which the rustdoc and
+`csan --help` are generated. The README's "Initial articles" table and the
+Typst package README's list copy it, so update them with it (`csan --help`
+lists the names and codes). Lint policy
 lives in the workspace `Cargo.toml` (`[workspace.lints]`) and
 `clippy.toml`, and each allow there documents its reason. Please keep new
 code warning-free under `just clippy` rather than adding blanket allows.

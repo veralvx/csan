@@ -183,7 +183,7 @@ error: plugin errored with: `strip-article` requires `lang`
 ```
 
 So does a `lang` that is not a string or `none`, or a `strip-article` that is
-not a bool, as in Typst's own functions:
+not a bool, with a message that names the argument:
 
 ```text
 error: assertion failed: `strip-article`: expected boolean, found string

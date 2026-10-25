@@ -20,8 +20,9 @@ title is filed without its initial article in the language ``lang`` names
     csan.cutter_sanborn(surname="Dickens", title="A Christmas Carol",
                         lang="en", strip_article=True)  # 'D548c'
 
-Unusable input, an unknown ``lang``, or ``strip_article`` without ``lang``
-raises ``ValueError``.
+A blank ``lang`` counts as absent, and author names are never stripped.
+Unusable input, an unknown ``lang`` (even with ``strip_article`` off), or
+``strip_article`` without ``lang`` raises ``ValueError``.
 
 Installing this package also provides the ``csan`` command-line tool
 (see ``csan --help``).

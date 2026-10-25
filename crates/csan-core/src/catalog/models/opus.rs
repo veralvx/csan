@@ -59,6 +59,10 @@ impl Opus {
     /// otherwise the title as written. It is always a subslice of
     /// [`title`](Self::title).
     ///
+    /// Cutter-Sanborn files on letters, so when the filing title has none
+    /// (_The 100_ under English, filed as `100`) it uses the title as written
+    /// instead; `LoC` files `100` by its numeral rule.
+    ///
     /// # Examples
     /// ```
     /// use csan_core::{Language, Opus};

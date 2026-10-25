@@ -734,7 +734,9 @@ mod tests {
             gen_filed("The ½", Language::English).unwrap(),
             CutterLoc::new('T', 44)
         );
-        // Unstripped, a leading quote still blocks the numeral rule (§3.9).
+        // Unstripped, a leading quote still blocks the numeral rule, as
+        // before stripping existed: only an article's surrounding
+        // punctuation is nonfiling.
         assert_eq!(
             gen_title("\"100 best recipes\"", 3).unwrap(),
             CutterLoc::new('B', 478)

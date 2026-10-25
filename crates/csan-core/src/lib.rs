@@ -14,7 +14,9 @@
 //! Input names are normalized first: whitespace and punctuation are
 //! stripped, diacritics are folded to ASCII, `Mc`/`M'` prefixes expand to
 //! `Mac`, and a surname of `St`/`Ste` expands to `Saint`/`Sainte`,
-//! matching the conventions of the underlying tables.
+//! matching the conventions of the underlying tables. On request, a title is
+//! filed without its initial article in a given [`Language`] (see
+//! [`Opus::with_article_language`] and [`catalog::language`]).
 //!
 //! # Example
 //! ```
