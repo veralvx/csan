@@ -71,14 +71,52 @@ impl Opus {
     /// ```
     #[must_use]
     pub fn filing_title(&self) -> &str {
-        self.article_language
-            .and_then(|language| language.strip_initial_article(&self.title))
-            .unwrap_or(&self.title)
+        self.stripped_title().unwrap_or(&self.title)
     }
 
-    /// Normalizes the title and truncates it to at most `suffix_len`
-    /// characters, producing the lowercase-able work mark material used by
+    /// The title without its initial article, or `None` when no article
+    /// language is set or nothing was stripped.
+    fn stripped_title(&self) -> Option<&str> {
+        let language = self.article_language?;
+        language.strip_initial_article(&self.title)
+    }
+
+    /// Runs `compute` on the [filing title](Self::filing_title), under the
+    /// rule that stripping never turns a title that works into an error: when
+    /// an article was stripped and `compute` fails with
+    /// [`NormalizationError::EmptyString`], it runs again on the title as
+    /// written. Any other result is returned as is. Every generator reads a
+    /// title through it.
+    ///
+    /// Only the Cutter-Sanborn computations can take the fallback: they file
+    /// on letters, so _The 100_ under English, filed on `100`, gives them
+    /// nothing and they use _The 100_. `LoC` files `100` by its numeral rule,
+    /// and a filing title starts with a letter or an ASCII digit, so `LoC`
+    /// never fails with `EmptyString` there.
+    ///
+    /// `compute` may run twice, so it should be free of side effects; the
+    /// `Fn` bound documents that, but doesn't enforce it.
+    pub(crate) fn compute_on_filing_title<'a, T>(
+        &'a self,
+        compute: impl Fn(&'a str) -> Result<T, NormalizationError>,
+    ) -> Result<T, NormalizationError> {
+        let Some(filing) = self.stripped_title() else {
+            return compute(&self.title);
+        };
+        let result = compute(filing);
+        if matches!(result, Err(NormalizationError::EmptyString)) {
+            compute(&self.title)
+        } else {
+            result
+        }
+    }
+
+    /// Normalizes the [filing title](Self::filing_title) and truncates it to
+    /// at most `suffix_len` characters, producing the lowercase-able work mark
+    /// material used by
     /// [Cutter-Sanborn generation](crate::catalog::cutter::CutterSanbornMethod).
+    /// When the filing title has no letters (_The 100_ under English), the
+    /// title as written is used instead.
     ///
     /// The result is guaranteed to be ASCII-alphabetic. It may be shorter
     /// than `suffix_len` (including empty when `suffix_len == 0`).
@@ -87,7 +125,8 @@ impl Opus {
     /// Returns a [`NormalizationError`] if the title normalizes to an empty
     /// string or contains untransliterable non-ASCII characters.
     pub fn as_suffix(&self, suffix_len: usize) -> Result<Cow<'_, str>, NormalizationError> {
-        let cow = to_ascii_alphabetic(Cow::Borrowed(self.title()))?;
+        let cow =
+            self.compute_on_filing_title(|title| to_ascii_alphabetic(Cow::Borrowed(title)))?;
 
         // The normalized title is pure ASCII, so every byte index is a char
         // boundary and byte length equals char count.
@@ -112,6 +151,7 @@ impl Opus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::RefCell;
 
     #[test]
     fn suffix_truncates_and_normalizes() {
@@ -170,6 +210,57 @@ mod tests {
                 "{title:?}"
             );
         }
+    }
+
+    /// Asserts that `compute_on_filing_title`, with a normalizing `compute`,
+    /// returns `want` (an error as its message) after calling `compute` with
+    /// `calls`.
+    #[track_caller]
+    fn assert_filed(
+        title: &str,
+        language: Option<Language>,
+        want: Result<&str, &str>,
+        calls: &[&str],
+    ) {
+        let opus = Opus::new(title).with_article_language(language);
+        let seen = RefCell::new(Vec::new());
+        let result = opus
+            .compute_on_filing_title(|filing| {
+                seen.borrow_mut().push(filing.to_owned());
+                to_ascii_alphabetic(Cow::Borrowed(filing)).map(Cow::into_owned)
+            })
+            .map_err(|error| error.to_string());
+        assert_eq!(result.as_deref().map_err(String::as_str), want, "{title}");
+        assert_eq!(seen.into_inner(), calls, "{title}");
+    }
+
+    #[test]
+    fn compute_on_filing_title_falls_back_only_when_stripping_empties_it() {
+        let english = Some(Language::English);
+        let empty = NormalizationError::EmptyString.to_string();
+        let non_ascii = NormalizationError::NonAsciiAlpha("Война".to_owned()).to_string();
+        assert_filed("The Bear", english, Ok("Bear"), &["Bear"]);
+        // `100` has no letters, so the title as written is used.
+        assert_filed("The 100", english, Ok("The"), &["100", "The 100"]);
+        // Any other error propagates, without a second try.
+        assert_filed("The Война", english, Err(&non_ascii), &["Война"]);
+        // Nothing stripped: one try, on the title as written.
+        assert_filed("The 100", None, Ok("The"), &["The 100"]);
+        assert_filed("100", english, Err(&empty), &["100"]);
+    }
+
+    #[test]
+    fn suffix_disregards_the_initial_article() {
+        let english = Some(Language::English);
+        let opus = Opus::new("A Christmas Carol").with_article_language(english);
+        assert_eq!(opus.as_suffix(3).unwrap(), "Chr");
+        // A clean filing title is still borrowed, not copied.
+        let bear = Opus::new("The Bear").with_article_language(english);
+        assert!(matches!(bear.as_suffix(2).unwrap(), Cow::Borrowed("Be")));
+        assert_eq!(Opus::new("A Christmas Carol").as_suffix(3).unwrap(), "ACh");
+        // The fallback: `The 100` gives today's mark.
+        let numeral = Opus::new("The 100").with_article_language(english);
+        assert_eq!(numeral.as_suffix(3).unwrap(), "The");
     }
 
     #[test]
