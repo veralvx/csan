@@ -12,7 +12,7 @@ JavaScript packages.
 ## Usage
 
 ```typ
-#import "@preview/csan:0.8.0": cutter-loc, cutter-sanborn
+#import "@preview/csan:0.9.0": cutter-loc, cutter-sanborn
 
 #cutter-sanborn(forename: "Charles", surname: "Dickens", title: "Oliver Twist")
 // -> "D548o"
@@ -28,7 +28,7 @@ Both functions return a string (unless `detailed: true`), so the result can
 go anywhere text can, for example on a spine label under a class number:
 
 ```typ
-#import "@preview/csan:0.8.0": cutter-sanborn
+#import "@preview/csan:0.9.0": cutter-sanborn
 
 #box(stroke: 0.5pt, inset: 8pt)[
   823.8 \
@@ -63,7 +63,7 @@ With `strip-article: true`, both functions do so in the language that `lang`
 names. Author names are never stripped.
 
 ```typ
-#import "@preview/csan:0.8.0": cutter-loc, cutter-sanborn
+#import "@preview/csan:0.9.0": cutter-loc, cutter-sanborn
 
 #cutter-sanborn(surname: "Dickens", title: "A Christmas Carol", lang: "en", strip-article: true)
 // -> "D548c" (D548a without)
@@ -81,7 +81,7 @@ In a document that sets its language, `context` can pass it on (the result
 is then content, not a string):
 
 ```typ
-#import "@preview/csan:0.8.0": cutter-sanborn
+#import "@preview/csan:0.9.0": cutter-sanborn
 
 #set text(lang: "pt")
 #context cutter-sanborn(surname: "Alencar", title: "O Guarani", lang: text.lang, strip-article: true)
@@ -131,7 +131,7 @@ With `detailed: true`, the result has the keys `alpha_prefix`, `numeric`,
 matched), and `formatted`:
 
 ```typ
-#import "@preview/csan:0.8.0": cutter-sanborn
+#import "@preview/csan:0.9.0": cutter-sanborn
 
 #cutter-sanborn(surname: "Borges", detailed: true)
 // -> (alpha_prefix: "B", alpha_suffix: none, entry: "Borg",

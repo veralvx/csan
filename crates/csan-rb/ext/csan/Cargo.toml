@@ -30,7 +30,7 @@ workspace = true
 # the workspace, from `cargo package`'s manifest, which keeps the version
 # and drops the path, so it compiles against the release on crates.io.
 # `just release` moves the pin.
-csan = { path = "../../../csan", version = "=0.8.0" }
+csan = { path = "../../../csan", version = "=0.9.0" }
 csan-core = { workspace = true }
 magnus = { workspace = true }
 serde_json = { workspace = true }

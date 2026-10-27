@@ -3,5 +3,5 @@
 module Csan
   # The gem's version: the csan workspace's, which `just release` sets here
   # too (and the extension reports as Csan::Native::VERSION).
-  VERSION = "0.8.0"
+  VERSION = "0.9.0"
 end

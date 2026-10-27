@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-10-27
+
+### Added
+
+- Add Language, the languages of csan's filing rules
+- Add Language::strip_initial_article
+- Add an article language to Opus and Attribution
+- Add --lang and --strip-article
+- Add lang and strip_article to the Python package
+- Add lang and strip_article to the Ruby gem
+- Add lang and stripArticle to the npm package
+- Add lang and strip-article to the Typst package
+
+### Changed
+
+- Drop the first RubyGems credentials before the second
+- Merge pull request #25 from veralvx/claude/youthful-brahmagupta-6rcrfr
+- Keep `@-names` in the changelog from mentioning GitHub users
+- Merge pull request #26 from veralvx/claude/youthful-brahmagupta-6rcrfr
+- Cutter titles by their filing title
+- Ignore the extension that maturin develop builds in place
+- Check the type stubs with stubtest
+- Describe initial-article stripping in the README
+- Merge pull request #27 from veralvx/claude/youthful-brahmagupta-6rcrfr
+
 ## [0.8.0] - 2026-10-24
 
 ### Added
