@@ -7,6 +7,7 @@
 **/.ropeproject
 ideas.*
 todo.md
+.ruby-lsp
 vendor/
 # Typst compile outputs from the plugin test/example documents
 crates/csan-typst/pkg/**/*.pdf
