@@ -2,7 +2,7 @@
 # flake.nix provides: nixpkgs' (flake.lock), and typst-package-check's own flake, at its tag.
 # `nix flake check` fails when one moves (`pins`), naming it; `just typst tools-check` holds the
 # ones on PATH to these.
-typst = "0.15.1"
+typst = "0.15.2"
 tytanic = "0.4.1"
 typstyle = "0.15.1"
 typst-package-check = "0.7.0"
