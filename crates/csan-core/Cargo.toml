@@ -2,7 +2,7 @@
 name = "csan-core"
 version.workspace = true
 authors.workspace = true
-categories = ["text-processing"]
+categories.workspace = true
 documentation = "https://docs.rs/csan-core"
 edition.workspace = true
 keywords.workspace = true
