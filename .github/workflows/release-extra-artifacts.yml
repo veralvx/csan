@@ -116,18 +116,17 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
-      - name: Install just
-        uses: taiki-e/install-action@v2
-        with:
-          tool: just
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
 
-      - name: Install Typst
+      # the Typst harness's tools at the versions flake.lock locks, as `nix
+      # develop` and rust-ci.yml have them (flake.nix's `typst-tools`:
+      # typst and just among them); the lock as committed, never relocked
+      - name: Install the flake's Typst tools
         run: |
-          curl -sSfL -o /tmp/typst.tar.xz \
-            https://github.com/typst/typst/releases/download/v0.15.1/typst-x86_64-unknown-linux-musl.tar.xz
-          tar -xf /tmp/typst.tar.xz -C /tmp
-          sudo mv /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst
-          typst --version
+          tools="$(nix build --no-update-lock-file --no-link --print-out-paths .#typst-tools)"
+          echo "$tools/bin" >> "$GITHUB_PATH"
+          "$tools/bin/typst" --version
 
       - name: Build, test, and pack
         run: just typst-pack target/dist-extra

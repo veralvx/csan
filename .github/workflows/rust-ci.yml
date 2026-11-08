@@ -17,6 +17,9 @@ on:
       - "crates/csan-web/bin/**"
       - "justfile"
       - "rust-toolchain.toml"
+      # the Typst job's tools are the flake's (`typst-tools`)
+      - "flake.nix"
+      - "flake.lock"
       - ".github/workflows/rust-ci.yml"
   # every pull request, whatever it touches: a required check that never
   # reports blocks the merge (push keeps its path filter)
@@ -206,26 +209,35 @@ jobs:
           cp target/wasm32-unknown-unknown/wasm/csan_typst.wasm \
             crates/csan-typst/pkg/csan_typst.wasm
 
-      # the pinned Typst (crates/csan-typst/tools.toml), and typst.toml's
-      # `compiler`, the oldest supported, as typst-<version> (`just typst
-      # floor`)
-      - name: Install Typst
-        run: |
-          for version in 0.15.1 0.14.2; do
-            curl -sSfL -o "/tmp/typst-$version.tar.xz" \
-              "https://github.com/typst/typst/releases/download/v$version/typst-x86_64-unknown-linux-musl.tar.xz"
-            mkdir "/tmp/typst-$version"
-            tar -xf "/tmp/typst-$version.tar.xz" -C "/tmp/typst-$version"
-            sudo mv "/tmp/typst-$version/typst-x86_64-unknown-linux-musl/typst" "/usr/local/bin/typst-$version"
-          done
-          sudo ln -s /usr/local/bin/typst-0.15.1 /usr/local/bin/typst
-          typst --version
-          typst-0.14.2 --version
+      - name: Install Nix
+        # flakes on, and the job's token for GitHub fetches
+        uses: cachix/install-nix-action@v31
 
-      - name: Install just
-        uses: taiki-e/install-action@v2
-        with:
-          tool: just
+      # the Typst harness's tools at the versions flake.lock locks, as `nix
+      # develop` has them (flake.nix's `typst-tools`: typst and just among
+      # them), from the binary cache; a flake.nix the lock no longer
+      # matches is refused, never relocked here
+      - name: Install the flake's Typst tools
+        run: |
+          tools="$(nix build --no-update-lock-file --no-link --print-out-paths .#typst-tools)"
+          echo "$tools/bin" >> "$GITHUB_PATH"
+          "$tools/bin/typst" --version
+
+      # typst.toml's `compiler`, the oldest Typst supported, as
+      # typst-<version> (`just typst floor`)
+      - name: Install the oldest supported Typst
+        run: |
+          version="$(sed -n 's/^compiler = "\([^"]*\)".*/\1/p' crates/csan-typst/pkg/typst.toml)"
+          if [ -z "$version" ]; then
+            echo "::error::crates/csan-typst/pkg/typst.toml declares no compiler"
+            exit 1
+          fi
+          curl -sSfL -o "/tmp/typst-$version.tar.xz" \
+            "https://github.com/typst/typst/releases/download/v$version/typst-x86_64-unknown-linux-musl.tar.xz"
+          mkdir "/tmp/typst-$version"
+          tar -xf "/tmp/typst-$version.tar.xz" -C "/tmp/typst-$version"
+          sudo mv "/tmp/typst-$version/typst-x86_64-unknown-linux-musl/typst" "/usr/local/bin/typst-$version"
+          "typst-$version" --version
 
       # the test document, and the example, whose `@preview/csan` import
       # the recipe serves from this checkout
@@ -234,9 +246,9 @@ jobs:
 
       # the package's harness against the plugin just built (the bundle is
       # the working tree): the README's and the examples' Typst, on the
-      # pinned Typst and on the oldest supported, and the imports' versions.
-      # Its other checks need tools this job lacks: `nix flake check`
-      # (nix.yml) runs them all.
+      # flake's Typst and on the oldest supported, and the imports' versions.
+      # Its other checks are `nix flake check`'s (nix.yml), with
+      # typst-package-check, which this job doesn't install.
       - name: Typst package harness
         # each recipe module-qualified: after the first, a bare name is the
         # root justfile's
