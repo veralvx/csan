@@ -14,8 +14,8 @@
 #                        the Typst harness's tools that CI installs (rust-ci's
 #                        and the release's Typst jobs): typst, tytanic,
 #                        typstyle, tinymist, just, shellcheck, shfmt,
-#                        actionlint -- typst-package-check aside, which
-#                        nixpkgs builds none of
+#                        actionlint and jq -- typst-package-check aside,
+#                        which nixpkgs builds none of
 #   nix fmt              nixfmt, through treefmt; `nix fmt -- --ci` formats,
 #                        and fails if that changed a file
 #   nix flake check      clippy, rustfmt, rustdoc and the binary's tests, the
@@ -177,6 +177,15 @@
               ;
             inherit typst-package-check;
           };
+          # the harness's tools for CI (rust-ci's and the release's Typst
+          # jobs), so they judge with the dev shell's versions, and jq, which
+          # `just manifest` reads typst.toml with; typst-package-check aside:
+          # nixpkgs builds none of it, and nix.yml builds and runs it
+          # (`typst-package-check`, `typst-package`)
+          typstToolsEnv = pkgs.buildEnv {
+            name = "typst-tools";
+            paths = lib.attrValues (removeAttrs typstTools [ "typst-package-check" ]) ++ [ pkgs.jq ];
+          };
           # what the harness reads: its justfile and the package,
           # so an edit elsewhere reruns none of its checks (its
           # `versions-check` sees the package's imports alone here; Rust
@@ -328,15 +337,10 @@
         in
         {
           packages.default = package;
-          # the harness's tools for CI (rust-ci's and the release's Typst
-          # jobs), so they judge with the dev shell's versions;
-          # typst-package-check aside: nixpkgs builds none of it, and nix.yml
-          # builds and runs it (`typst-package-check`, `typst-package`)
-          packages.typst-tools = pkgs.buildEnv {
-            name = "typst-tools";
-            paths = lib.attrValues (removeAttrs typstTools [ "typst-package-check" ]);
-          };
+          packages.typst-tools = typstToolsEnv;
           checks = {
+            # built, not just evaluated, on every system: what CI installs
+            typst-tools = typstToolsEnv;
             # built, not just evaluated: nixpkgs carries no build of it, so
             # a `nix flake update` its build no longer accepts fails here
             inherit typst-package-check;

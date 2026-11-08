@@ -101,18 +101,18 @@ just typst figures         # re-render examples/example.png, which the README sh
 just typst checks          # every check below
 ```
 
-The checks: the Typst code's and the justfile's format (`format-check`, typstyle),
-tinymist's lint (`lint`), the justfile's script recipes (`shell-check`,
-shellcheck and shfmt), the tests (`test`), every `@preview/csan` import at
-`typst.toml`'s version (`versions-check`), the README's `typ` blocks and the
-examples compiled against the bundle (`readme-check`, `examples-check`;
-`floor` does both on the oldest supported Typst, as `typst-0.14.2`), the
-README's figure as its example renders (`figures-check`), and
-typst-package-check on the bundle (`package-check`, offline unless `just
-typst::online=true typst package-check`). `just typst bundle` writes the package as
-typst/packages gets it to `pkg/dist/preview/csan/<version>/`: `git
-archive` of `pkg/`, less what `pkg/.gitattributes` export-ignores (the
-tests).
+The checks: the Typst code's and the justfile's format (`format-check`,
+typstyle), tinymist's lint (`lint`), the justfile's script recipes
+(`shell-check`, shellcheck and shfmt), the tests (`test`), every
+`@preview/csan` import at `typst.toml`'s version (`versions-check`), the
+README's `typ` blocks and the examples compiled against the bundle
+(`readme-check`, `examples-check`; `floor` does both on the oldest
+supported Typst, as `typst-0.14.2`), the README's figure as its example
+renders (`figures-check`), and typst-package-check on the bundle
+(`package-check`, offline unless `just typst::online=true typst
+package-check`). `just typst bundle` writes the package as typst/packages
+gets it to `pkg/dist/preview/csan/<version>/`: `git archive` of `pkg/`,
+less what `pkg/.gitattributes` export-ignores (the tests).
 
 `nix flake check` runs them in the sandbox (`typst-tests`, `typst-package`,
 `typst-shell`). Rust CI's Typst job runs `versions-check`, `readme-check`,

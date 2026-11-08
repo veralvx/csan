@@ -8,7 +8,8 @@
 # versions the package with the crates and moves every @preview/csan import.
 #
 # Formatted with `just --fmt --unstable`. The tools are the flake's, at the versions flake.lock
-# locks: `nix develop` has them all, and CI installs the same (flake.nix's `typst-tools`).
+# locks: `nix develop` has them all, and CI installs the same (flake.nix's `typst-tools`),
+# typst-package-check aside, which `nix flake check` builds and runs.
 
 set working-directory := "pkg"
 
@@ -414,7 +415,7 @@ package-check: bundle
             ;;
     esac
 
-# CI installs each version as typst-<version>, which is the name looked for here.
+# CI installs the oldest as typst-<version>, which is the name looked for here.
 [doc("The README and the examples on typst.toml's `compiler`, the oldest Typst supported")]
 floor:
     #!/usr/bin/env bash

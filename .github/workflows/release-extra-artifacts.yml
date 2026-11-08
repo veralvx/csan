@@ -121,7 +121,10 @@ jobs:
 
       # the Typst harness's tools at the versions flake.lock locks, as `nix
       # develop` and rust-ci.yml have them (flake.nix's `typst-tools`:
-      # typst and just among them); the lock as committed, never relocked
+      # typst and just among them); the lock as committed, never relocked.
+      # flake.lock isn't among this workflow's paths: rust-ci.yml's Typst
+      # job installs the same tools and runs the same tests on every pull
+      # request, Dependabot's lock bumps included
       - name: Install the flake's Typst tools
         run: |
           tools="$(nix build --no-update-lock-file --no-link --print-out-paths .#typst-tools)"
