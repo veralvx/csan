@@ -10,12 +10,19 @@
 #                        tools (maturin, pytest, mypy, ruby with bundler and
 #                        libclang, wasm-pack, node, typst)
 #   nix develop .#miri   nightly with Miri, for `just miri`
+#   nix build .#typst-tools
+#                        the Typst harness's tools that CI installs (rust-ci's
+#                        and the release's Typst jobs): typst, tytanic,
+#                        typstyle, tinymist, just, shellcheck, shfmt,
+#                        actionlint and jq -- typst-package-check aside,
+#                        which nixpkgs builds none of
 #   nix fmt              nixfmt, through treefmt; `nix fmt -- --ci` formats,
 #                        and fails if that changed a file
 #   nix flake check      clippy, rustfmt, rustdoc and the binary's tests, the
 #                        format (`nix fmt`'s verdict) and both dev shells;
 #                        the Typst package's harness (crates/csan-typst):
-#                        its tools' pins, its tests (tytanic), its checks
+#                        typst-package-check built, its tests (tytanic), its
+#                        checks
 #                        (`just typst ...`: the bundle, typst-package-check,
 #                        the README's and the examples' Typst, the figures,
 #                        tinymist's lint) and its justfile's shell; and the
@@ -29,9 +36,9 @@
 #
 # flake.lock pins nixpkgs, rust-overlay and typst-package-check: commit it;
 # `nix flake update` moves it, and Dependabot does weekly
-# (.github/dependabot.yml). The Typst harness's tools are pinned in
-# crates/csan-typst/tools.toml too: after an update, the `typst-pins` check
-# names each one that moved, for tools.toml.
+# (.github/dependabot.yml). It is the one list of the Typst harness's tool
+# versions: the dev shell's, the checks' and CI's (`typst-tools`) alike, so
+# moving the lock moves them all, and there is no other list to keep.
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -70,9 +77,6 @@
       inherit (manifest.workspace.package) version license repository;
       cargoPackage = (lib.importTOML ./crates/csan/Cargo.toml).package;
       pname = cargoPackage.name;
-      # the Typst harness's tools, at the versions this flake provides
-      typstPins = lib.importTOML ./crates/csan-typst/tools.toml;
-
       # what a build reads: the repository less its tooling and contributor
       # docs, so editing those rebuilds nothing, while a new crate or test is
       # in without a word
@@ -104,7 +108,6 @@
               ./crates/csan-rb/test
               ./crates/csan-typst/justfile
               ./crates/csan-typst/pkg
-              ./crates/csan-typst/tools.toml
               ./dist-workspace.toml
               ./dprint.json
               ./flake.lock
@@ -157,8 +160,9 @@
               pkgs.just
             ];
           };
-          # The Typst harness (crates/csan-typst/justfile): the tools
-          # tools.toml pins, each the version this flake provides
+          # The Typst harness's tools (crates/csan-typst/justfile), at the
+          # versions flake.lock locks: nixpkgs', and typst-package-check
+          # from its own flake, at its tag
           typst-package-check = package-check.packages.${pkgs.stdenv.hostPlatform.system}.default;
           typstTools = {
             inherit (pkgs)
@@ -173,11 +177,16 @@
               ;
             inherit typst-package-check;
           };
-          stalePins = lib.filter (name: (typstPins.${name} or null) != typstTools.${name}.version) (
-            lib.attrNames typstTools
-          );
-          unknownPins = lib.subtractLists (lib.attrNames typstTools) (lib.attrNames typstPins);
-          # what the harness reads: its justfile, its pins and the package,
+          # the harness's tools for CI (rust-ci's and the release's Typst
+          # jobs), so they judge with the dev shell's versions, and jq, which
+          # `just manifest` reads typst.toml with; typst-package-check aside:
+          # nixpkgs builds none of it, and nix.yml builds and runs it
+          # (`typst-package-check`, `typst-package`)
+          typstToolsEnv = pkgs.buildEnv {
+            name = "typst-tools";
+            paths = lib.attrValues (removeAttrs typstTools [ "typst-package-check" ]) ++ [ pkgs.jq ];
+          };
+          # what the harness reads: its justfile and the package,
           # so an edit elsewhere reruns none of its checks (its
           # `versions-check` sees the package's imports alone here; Rust
           # CI's Typst job checks the whole repository's)
@@ -185,7 +194,6 @@
             root = ./.;
             fileset = lib.fileset.unions [
               ./crates/csan-typst/justfile
-              ./crates/csan-typst/tools.toml
               ./crates/csan-typst/pkg
             ];
           };
@@ -307,7 +315,7 @@
               ]
               # the Typst package's harness (`just typst ...`): typst,
               # tytanic, typstyle, tinymist, typst-package-check, shellcheck,
-              # shfmt, actionlint, as crates/csan-typst/tools.toml pins them
+              # shfmt, actionlint, at the versions flake.lock locks
               ++ lib.attrValues typstTools;
             };
             # Miri runs on nightly only: rust-overlay's latest nightly that
@@ -329,29 +337,10 @@
         in
         {
           packages.default = package;
+          packages.typst-tools = typstToolsEnv;
           checks = {
-            # every pin is the version this flake provides; after `nix
-            # flake update`, the tools that moved, named for tools.toml
-            typst-pins =
-              pkgs.runCommand "typst-pins"
-                {
-                  report = lib.concatStringsSep "\n" (
-                    map (
-                      name:
-                      "${name}: crates/csan-typst/tools.toml pins ${typstPins.${name} or "none"}, the flake has ${typstTools.${name}.version}"
-                    ) stalePins
-                    ++ map (
-                      name: "${name}: pinned in crates/csan-typst/tools.toml, but no tool the flake provides"
-                    ) unknownPins
-                  );
-                }
-                ''
-                  if [ -n "$report" ]; then
-                    printf '%s\n' "$report" >&2
-                    exit 1
-                  fi
-                  touch $out
-                '';
+            # built, not just evaluated, on every system: what CI installs
+            typst-tools = typstToolsEnv;
             # built, not just evaluated: nixpkgs carries no build of it, so
             # a `nix flake update` its build no longer accepts fails here
             inherit typst-package-check;

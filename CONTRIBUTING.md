@@ -22,10 +22,12 @@ To build and test locally, you will need the following tools:
   (`rustup target add wasm32-unknown-unknown`), the `typst` CLI (0.14.2+)
   to run the plugin test documents, and `wasm-opt` (binaryen) if you want
   to shrink the packaged artifact.
-- **Optional, for the Typst package's harness** (`just typst ...`): the
-  tools [`crates/csan-typst/tools.toml`](crates/csan-typst/tools.toml)
-  pins, at those versions: typst, tytanic (`tt`), typstyle, tinymist,
-  typst-package-check, just, shellcheck, shfmt and actionlint, plus jq.
+- **Optional, for the Typst package's harness** (`just typst ...`): typst,
+  tytanic (`tt`), typstyle, tinymist, typst-package-check, just,
+  shellcheck, shfmt and actionlint, plus jq. Their verdicts depend on their
+  versions, which are the ones `flake.lock` locks: `nix develop` has them,
+  and CI installs the same (`nix build .#typst-tools`). Installed by hand,
+  a tool may be another version, and judge apart from CI.
 - **Optional, for the bindings:** `maturin`, `pytest` and `mypy` (its
   stubtest checks the type stubs) for the Python package (`crates/csan-py`)
   and `wasm-pack` plus Node for the npm package
@@ -99,25 +101,27 @@ just typst figures         # re-render examples/example.png, which the README sh
 just typst checks          # every check below
 ```
 
-The checks: the pinned tools are the ones on PATH (`tools-check`), the
-Typst code's and the justfile's format (`format-check`, typstyle),
-tinymist's lint (`lint`), the justfile's script recipes (`shell-check`,
-shellcheck and shfmt), the tests (`test`), every `@preview/csan` import at
-`typst.toml`'s version (`versions-check`), the README's `typ` blocks and the
-examples compiled against the bundle (`readme-check`, `examples-check`;
-`floor` does both on the oldest supported Typst, as `typst-0.14.2`), the
-README's figure as its example renders (`figures-check`), and
-typst-package-check on the bundle (`package-check`, offline unless `just
-typst::online=true typst package-check`). `just typst bundle` writes the package as
-typst/packages gets it to `pkg/dist/preview/csan/<version>/`: `git
-archive` of `pkg/`, less what `pkg/.gitattributes` export-ignores (the
-tests).
+The checks: the Typst code's and the justfile's format (`format-check`,
+typstyle), tinymist's lint (`lint`), the justfile's script recipes
+(`shell-check`, shellcheck and shfmt), the tests (`test`), every
+`@preview/csan` import at `typst.toml`'s version (`versions-check`), the
+README's `typ` blocks and the examples compiled against the bundle
+(`readme-check`, `examples-check`; `floor` does both on the oldest
+supported Typst, as `typst-0.14.2`), the README's figure as its example
+renders (`figures-check`), and typst-package-check on the bundle
+(`package-check`, offline unless `just typst::online=true typst
+package-check`). `just typst bundle` writes the package as typst/packages
+gets it to `pkg/dist/preview/csan/<version>/`: `git archive` of `pkg/`,
+less what `pkg/.gitattributes` export-ignores (the tests).
 
 `nix flake check` runs them in the sandbox (`typst-tests`, `typst-package`,
-`typst-shell`), with `typst-pins`, which fails when a `nix flake update`
-moved a tool from its `tools.toml` pin, naming it: update `tools.toml` to
-the version the flake has. Rust CI's Typst job runs `versions-check`,
-`readme-check`, `examples-check` and `floor` against the plugin it builds.
+`typst-shell`). Rust CI's Typst job runs `versions-check`, `readme-check`,
+`examples-check` and `floor` against the plugin it builds, with the
+flake's tools (`typst-tools`) and the oldest Typst `typst.toml` declares
+(`compiler`). There is no list of tool versions to keep: `nix flake update`
+(or Dependabot's) moves them all. A new Typst may render a figure apart
+from `examples/example.png`, which `figures-check` then fails: `just typst
+figures` renders it anew, to look at before committing.
 
 The npm package's build recipes are described in
 [`crates/csan-web/README.md`](crates/csan-web/README.md#building-from-source),

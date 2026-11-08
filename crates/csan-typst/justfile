@@ -7,13 +7,15 @@
 # rebuild it from the root (`just wasm`) first. Releases are the root's `just release`, which
 # versions the package with the crates and moves every @preview/csan import.
 #
-# Formatted with `just --fmt --unstable`. tools.toml pins the tools, which flake.nix provides.
+# Formatted with `just --fmt --unstable`. The tools are the flake's, at the versions flake.lock
+# locks: `nix develop` has them all, and CI installs the same (flake.nix's `typst-tools`),
+# typst-package-check aside, which `nix flake check` builds and runs.
 
 set working-directory := "pkg"
 
 # The Typst that compiles the README's examples and the examples, as `just typst=<command> ...`
 # sets it here (`just typst::typst=<command> typst ...` from the root): `just floor` gives the
-# oldest. The README's figures are always the pinned `typst`'s.
+# oldest. The README's figures are always the flake's `typst`'s (flake.lock's version).
 #
 # From the root, name each recipe after the first with its module: `just typst::test
 # typst::lint` (a bare second name is the root justfile's).
@@ -140,37 +142,6 @@ test:
 [positional-arguments]
 update *tests:
     tt update "$@"
-
-[doc("The pinned tools (tools.toml) are the ones on PATH")]
-tools-check:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    failed=0
-    # name, then the command that prints its version
-    while read -r tool command; do
-        pinned="$(sed -n "s/^$tool = \"\([^\"]*\)\".*/\1/p" ../tools.toml)"
-        if ! command -v "${command%% *}" > /dev/null; then
-            echo "error: ${command%% *} ($tool $pinned) is not on PATH: CONTRIBUTING.md lists the tools, \`nix develop\` has them all" >&2
-            failed=1
-            continue
-        fi
-        found="$($command | { grep -o -E '[0-9]+\.[0-9]+\.[0-9]+' || true; } | head -n 1)"
-        if [ "$found" != "$pinned" ]; then
-            echo "error: $tool is $found, tools.toml pins $pinned" >&2
-            failed=1
-        fi
-    done << 'EOF'
-    typst typst --version
-    tytanic tt --version
-    typstyle typstyle --version
-    typst-package-check typst-package-check version
-    tinymist tinymist -V
-    just just --version
-    shellcheck shellcheck --version
-    shfmt shfmt --version
-    actionlint actionlint --version
-    EOF
-    exit "$failed"
 
 # Universe asks that a release's examples import that release; the root's `just release` moves
 # them all. The whole repository, not only the package: any file that imports it.
@@ -300,8 +271,8 @@ examples-check: bundle
 
 # The README's figures: each example with a PNG beside it (examples/<name>.png, the image the
 # README shows), its first page rendered against the bundle into DIR/<name>.png. Always by the
-# pinned Typst, with the fonts Typst embeds alone: the figures are committed, and another Typst or
-# font may draw them otherwise.
+# flake's Typst (`typst`, at flake.lock's version), with the fonts Typst embeds alone: the figures
+# are committed, and another Typst or font may draw them otherwise.
 [positional-arguments]
 [private]
 render-figures dir:
@@ -444,7 +415,7 @@ package-check: bundle
             ;;
     esac
 
-# CI installs each version as typst-<version>, which is the name looked for here.
+# CI installs the oldest as typst-<version>, which is the name looked for here.
 [doc("The README and the examples on typst.toml's `compiler`, the oldest Typst supported")]
 floor:
     #!/usr/bin/env bash
@@ -636,4 +607,4 @@ shfmt-recipes justfile=justfile():
 # The workflows are the repository's: `nix flake check` lints them (actionlint), and the root's
 # CI runs these. tytanic and the figures need no network; package-check runs offline.
 [doc("Every check of the package")]
-checks: tools-check format-check lint shell-check test versions-check readme-check examples-check figures-check package-check
+checks: format-check lint shell-check test versions-check readme-check examples-check figures-check package-check
